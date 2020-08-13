@@ -1,5 +1,8 @@
 name: "Generate release notes for next commit"
 
+on: 
+  workflow_dispatch:
+
 jobs:
   generateReleaseNotes:
     runs-on: macos-latest
@@ -21,9 +24,10 @@ jobs:
         flankScripts ci generateReleaseNotes --token=${{ secrets.GITHUB_TOKEN }}
 
     - name: Commit files and create Pull request
+      id: pr
       uses: peter-evans/create-pull-request@v3
       with:
-        commit-message: [Auto PR] Generate release notes
+        commit-message: "[Automatic PR] Generate release notes"
         signoff: false
         branch: release/$NEXT_RELEASE_TAG
         title: 'chore: release notes for $NEXT_RELEASE_TAG'
