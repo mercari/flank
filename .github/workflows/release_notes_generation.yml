@@ -1,7 +1,8 @@
 name: "Generate release notes for next commit"
 
-on: 
+on:
   workflow_dispatch:
+    inputs:
 
 jobs:
   generateReleaseNotes:
