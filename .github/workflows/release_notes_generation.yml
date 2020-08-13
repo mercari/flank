@@ -1,10 +1,14 @@
 name: "Generate release notes for next commit"
 
-on:
+on: 
   workflow_dispatch:
     inputs:
-      name:
-        required: 'false'
+      logLevel:
+        description: 'Log level'     
+        required: true
+        default: 'warning'
+      tags:
+        description: 'Test scenario tags' 
 
 jobs:
   generateReleaseNotes:
