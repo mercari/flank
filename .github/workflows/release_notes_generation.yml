@@ -19,19 +19,16 @@ jobs:
         run: |
           flankScripts ci generateReleaseNotes --token=${{ secrets.GITHUB_TOKEN }}
 
-      uses: peter-evans/create-pull-request@v3
-      with:
-        commit-message: [Auto PR] Generate release notes
-        signoff: false
-        branch: release/$NEXT_RELEASE_TAG
-        title: 'chore: release notes for $NEXT_RELEASE_TAG'
-        body: |
-          Auto generated release notes for $NEXT_RELEASE_TAG
-        labels: |
-          automated pr
-          release
-        assignees:
-        reviewers:
-        team-reviewers: |
-          members
-        draft: false
+      - uses: peter-evans/create-pull-request@v3
+        with:
+          commit-message: [Auto PR] Generate release notes
+          signoff: false
+          branch: release/$NEXT_RELEASE_TAG
+          title: 'chore: release notes for $NEXT_RELEASE_TAG'
+          body: |
+            Auto generated release notes for $NEXT_RELEASE_TAG
+          labels: |
+            automated pr
+            release
+          team-reviewers: members
+          draft: false
