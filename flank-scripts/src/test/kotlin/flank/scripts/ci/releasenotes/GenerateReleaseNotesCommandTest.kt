@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import java.nio.file.Paths
 import org.junit.Test
 
-class AppendReleaseNotesCommandTest {
+class GenerateReleaseNotesCommandTest {
 
     @Test
     fun `Should not used default file if passed other as argument`() {
@@ -12,7 +12,7 @@ class AppendReleaseNotesCommandTest {
         val expected = Paths.get("").toAbsolutePath().toString()
 
         // when
-        val command = AppendReleaseNotesCommand().apply {
+        val command = GenerateReleaseNotesCommand().apply {
             main(listOf(
                 "--pr-number=1",
                 "--git-user=test",

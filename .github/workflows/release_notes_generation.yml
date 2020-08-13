@@ -1,0 +1,37 @@
+name: "Generate release notes for next commit"
+
+jobs:
+  afterPr:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Gradle Build flankScripts and add it to PATH
+        run: |
+          ./flank-scripts/bash/buildFlankScripts.sh
+          echo "::add-path::./flank-scripts/bash"
+
+      - name: Set next release tag variable
+        run: |
+          flankScripts ci nextReleaseTag --token=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Append release note
+        run: |
+          flankScripts ci generateReleaseNotes --token=${{ secrets.GITHUB_TOKEN }}
+
+      uses: peter-evans/create-pull-request@v3
+      with:
+        commit-message: [Auto PR] Generate release notes
+        signoff: false
+        branch: release/$NEXT_RELEASE_TAG
+        title: 'chore: release notes for $NEXT_RELEASE_TAG'
+        body: |
+          Auto generated release notes for $NEXT_RELEASE_TAG
+        labels: |
+          automated pr
+          release
+        assignees:
+        reviewers:
+        team-reviewers: |
+          members
+        draft: false

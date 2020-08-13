@@ -6,7 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
 import kotlinx.serialization.stringify
 
-private val json by lazy { Json(JsonConfiguration.Stable) }
+private val json by lazy { Json(JsonConfiguration.Stable.copy(ignoreUnknownKeys = true)) }
 
 fun <T> T.toJson(serializationStrategy: SerializationStrategy<T>) = json.stringify(serializationStrategy, this)
 

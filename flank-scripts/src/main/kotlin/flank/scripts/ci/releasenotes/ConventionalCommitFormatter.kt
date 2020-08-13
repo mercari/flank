@@ -1,5 +1,7 @@
 package flank.scripts.ci.releasenotes
 
+import flank.scripts.utils.markdownBold
+
 fun String.mapPrTitle() = when {
     startsWith("feat") -> replaceFirst("feat", "New feature".markdownBold())
     startsWith("fix") -> replaceFirst("fix", "Fix".markdownBold())
@@ -10,5 +12,3 @@ fun String.mapPrTitle() = when {
     startsWith("perf") -> replaceFirst("perf", "Performance upgrade".markdownBold())
     else -> null // we do not accept other prefix to have update in release notes
 }
-
-private fun String.markdownBold() = "**$this**"

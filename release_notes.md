@@ -1,3 +1,7 @@
+## v20.08.2
+- [990](https://github.com/Flank/flank/pull/990) **Fix**: exclusion of @Suppress test ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [987](https://github.com/Flank/flank/pull/987) **Documentation**: Analytics addition to readme ([Sloox](https://github.com/Sloox))
+
 ## next (unreleased)
 - [#987](https://github.com/Flank/flank/pull/987) Flank Error Monitoring readme addition ([sloox](https://github.com/Sloox))
 - [#990](https://github.com/Flank/flank/pull/990) Fix: exclusion of @Suppress test. ([piotradamczyk5](https://github.com/piotradamczyk5))
