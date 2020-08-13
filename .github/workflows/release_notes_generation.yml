@@ -3,6 +3,8 @@ name: "Generate release notes for next commit"
 on:
   workflow_dispatch:
     inputs:
+      name:
+        required: 'false'
 
 jobs:
   generateReleaseNotes:
