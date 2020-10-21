@@ -1,4 +1,5 @@
 @file:Suppress("UnusedPrivateClass")
+
 package ftl.config
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
@@ -17,13 +18,14 @@ import java.nio.file.Path
 fun loadAndroidConfig(
     path: Path? = null,
     reader: Reader = loadFile(path!!)
-): AndroidConfig = modifyAndThrow(reader, android = true).run {
-    AndroidConfig(
-        data = this,
-        common = parseYaml<CommonWrapper>().run { Config.Partial(gcloud, flank) },
-        platform = parseYaml<AndroidWrapper>().run { Config.Partial(gcloud, flank) }
-    )
-}
+): AndroidConfig =
+    modifyAndThrow(reader, android = true).run {
+        AndroidConfig(
+            data = this,
+            common = parseYaml<CommonWrapper>().run { Config.Partial(gcloud, flank) },
+            platform = parseYaml<AndroidWrapper>().run { Config.Partial(gcloud, flank) }
+        )
+    }
 
 fun loadIosConfig(
     path: Path? = null,

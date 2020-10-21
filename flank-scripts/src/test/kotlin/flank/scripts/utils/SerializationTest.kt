@@ -1,7 +1,7 @@
 package flank.scripts.utils
 
 import com.google.common.truth.Truth.assertThat
-import flank.scripts.release.hub.GitHubErrorResponse
+import flank.scripts.github.GitHubErrorResponse
 import flank.scripts.release.updatebugsnag.SourceControl
 import org.junit.Test
 
@@ -16,10 +16,13 @@ class SerializationTest {
               "documentation_url": "https://developer.github.com/v3"
             }
         """.trimIndent()
-        val expected = GitHubErrorResponse("Bad credentials", "https://developer.github.com/v3")
+        val expected = GitHubErrorResponse(
+            "Bad credentials",
+            "https://developer.github.com/v3"
+        )
 
         // when
-        val actual = testJson.toObject(GitHubErrorResponse.serializer())
+        val actual = testJson.toObject<GitHubErrorResponse>()
 
         // then
         assertThat(actual).isEqualTo(expected)
@@ -32,7 +35,7 @@ class SerializationTest {
         val expected = "{\"provider\":\"a\",\"repository\":\"b\",\"revision\":\"c\"}"
 
         // when
-        val actual = testObject.toJson(SourceControl.serializer())
+        val actual = testObject.toJson()
 
         // then
         assertThat(actual).isEqualTo(expected)

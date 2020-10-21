@@ -3,9 +3,9 @@ package ftl.ios
 import com.google.api.services.testing.model.IosDeviceCatalog
 import ftl.environment.asPrintableTable
 import ftl.environment.common.asPrintableTable
+import ftl.environment.getLocaleDescription
 import ftl.environment.ios.asPrintableTable
 import ftl.environment.ios.getDescription
-import ftl.environment.getLocaleDescription
 import ftl.gc.GcTesting
 import ftl.http.executeWithRetry
 
@@ -18,11 +18,16 @@ object IosCatalog {
     private val catalogMap: MutableMap<String, IosDeviceCatalog> = mutableMapOf()
     private val xcodeMap: MutableMap<String, List<String>> = mutableMapOf()
 
-    fun devicesCatalogAsTable(projectId: String) = iosDeviceCatalog(projectId).models.asPrintableTable()
+    fun devicesCatalogAsTable(projectId: String) = getModels(projectId).asPrintableTable()
+
+    fun describeModel(projectId: String, modelId: String) = getModels(projectId).getDescription(modelId)
+
+    private fun getModels(projectId: String) = iosDeviceCatalog(projectId).models
 
     fun softwareVersionsAsTable(projectId: String) = getVersionsList(projectId).asPrintableTable()
 
-    fun describeSoftwareVersion(projectId: String, versionId: String) = getVersionsList(projectId).getDescription(versionId)
+    fun describeSoftwareVersion(projectId: String, versionId: String) =
+        getVersionsList(projectId).getDescription(versionId)
 
     private fun getVersionsList(projectId: String) = iosDeviceCatalog(projectId).versions
 
@@ -32,7 +37,8 @@ object IosCatalog {
 
     private fun getLocales(projectId: String) = iosDeviceCatalog(projectId).runtimeConfiguration.locales
 
-    fun supportedOrientationsAsTable(projectId: String) = iosDeviceCatalog(projectId).runtimeConfiguration.orientations.asPrintableTable()
+    fun supportedOrientationsAsTable(projectId: String) =
+        iosDeviceCatalog(projectId).runtimeConfiguration.orientations.asPrintableTable()
 
     fun supportedXcode(version: String, projectId: String) = xcodeVersions(projectId).contains(version)
 

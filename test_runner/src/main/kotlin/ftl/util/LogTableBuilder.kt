@@ -1,6 +1,7 @@
 package ftl.util
 
 import com.google.common.annotations.VisibleForTesting
+import java.util.Locale
 
 enum class TableStyle {
     DEFAULT,
@@ -11,7 +12,7 @@ data class TableColumn(
     val header: String,
     val data: List<String>,
     val dataColor: List<SystemOutColor> = listOf(),
-    val columnSize: Int = ((data + header).maxBy { it.length }?.length ?: 0) + DEFAULT_COLUMN_PADDING
+    val columnSize: Int = ((data + header).maxByOrNull { it.length }?.length ?: 0) + DEFAULT_COLUMN_PADDING
 )
 
 private data class DataWithSize(
@@ -78,7 +79,7 @@ private fun StringBuilder.startTable(rowSizes: List<Int>) {
         endChar = START_TABLE_END_CHAR,
         rowSizes = rowSizes
     )
-    appendln()
+    appendLine()
 }
 
 private fun StringBuilder.rowSeparator(rowSizes: List<Int>) {
@@ -88,11 +89,11 @@ private fun StringBuilder.rowSeparator(rowSizes: List<Int>) {
         endChar = MIDDLE_TABLE_END_CHAR,
         rowSizes = rowSizes
     )
-    appendln()
+    appendLine()
 }
 
 private fun StringBuilder.appendData(tableColumns: Array<out TableColumn>, rowSizes: List<Int>, tableStyle: TableStyle) {
-    val rowCount = (tableColumns.maxBy { it.data.size } ?: tableColumns.first()).data.size
+    val rowCount = (tableColumns.maxByOrNull { it.data.size } ?: tableColumns.first()).data.size
     (0 until rowCount)
         .map { rowNumber ->
             tableColumns.map {
@@ -133,14 +134,14 @@ private fun StringBuilder.appendDataRow(data: List<DataWithSize>) {
         if (it.centered) append(it.center()) else append(it.leftAligned())
         append(TABLE_VERTICAL_LINE)
     }
-    appendln()
+    appendLine()
 }
 
-private fun DataWithSize.leftAligned() = String.format("%-${columnSize}s", " $data")
+private fun DataWithSize.leftAligned() = String.format(Locale.getDefault(), "%-${columnSize}s", " $data")
 
 private fun DataWithSize.center() = String.format(
-        "%-" + columnSize + "s",
-        String.format("%" + (data.length + (columnSize - data.length) / 2) + "s", this.data)
+    "%-" + columnSize + "s",
+    String.format("%" + (data.length + (columnSize - data.length) / 2) + "s", this.data)
 )
 
 inline fun TableColumn.applyColorsUsing(mapper: (String) -> SystemOutColor) = copy(dataColor = data.map(mapper))

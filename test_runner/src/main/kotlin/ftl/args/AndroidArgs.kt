@@ -1,6 +1,7 @@
 package ftl.args
 
 import ftl.args.yml.AppTestPair
+import ftl.args.yml.Type
 
 data class AndroidArgs(
     val commonArgs: CommonArgs,
@@ -11,15 +12,20 @@ data class AndroidArgs(
     val useOrchestrator: Boolean,
     val roboDirectives: List<FlankRoboDirective>,
     val roboScript: String?,
-    val environmentVariables: Map<String, String>,
+    val environmentVariables: Map<String, String>, // should not be printed, becuase could contains sensitive informations
     val directoriesToPull: List<String>,
+    val grantPermissions: String?,
+    val type: Type?,
+    val scenarioNumbers: List<String>,
     val otherFiles: Map<String, String>,
+    val scenarioLabels: List<String>,
     val performanceMetrics: Boolean,
     val numUniformShards: Int?,
     val testRunnerClass: String?,
     val testTargets: List<String>,
     val additionalAppTestApks: List<AppTestPair>,
-    override val useLegacyJUnitResult: Boolean
+    override val useLegacyJUnitResult: Boolean,
+    val obfuscateDumpShards: Boolean
 ) : IArgs by commonArgs {
     companion object : AndroidArgsCompanion()
 
@@ -41,8 +47,12 @@ AndroidArgs
       additional-apks: ${ArgsToString.listToString(additionalApks)}
       auto-google-login: $autoGoogleLogin
       use-orchestrator: $useOrchestrator
-      directories-to-pull:${ArgsToString.listToString(directoriesToPull)}
-      other-files:${ArgsToString.mapToString(otherFiles)}
+      directories-to-pull: ${ArgsToString.listToString(directoriesToPull)}
+      grant-permissions: $grantPermissions
+      type: ${type?.ymlName}
+      other-files: ${ArgsToString.mapToString(otherFiles)}
+      scenario-numbers: ${ArgsToString.listToString(scenarioNumbers)}
+      scenario-labels: ${ArgsToString.listToString(scenarioLabels)}
       performance-metrics: $performanceMetrics
       num-uniform-shards: $numUniformShards
       test-runner-class: $testRunnerClass
@@ -58,6 +68,8 @@ AndroidArgs
       num-test-runs: $repeatTests
       smart-flank-gcs-path: $smartFlankGcsPath
       smart-flank-disable-upload: $smartFlankDisableUpload
+      default-test-time: $defaultTestTime
+      use-average-test-time-for-new-tests: $useAverageTestTimeForNewTests
       files-to-download:${ArgsToString.listToString(filesToDownload)}
       test-targets-always-run:${ArgsToString.listToString(testTargetsAlwaysRun)}
       disable-sharding: $disableSharding
@@ -71,15 +83,30 @@ AndroidArgs
       legacy-junit-result: $useLegacyJUnitResult
       ignore-failed-tests: $ignoreFailedTests
       output-style: ${outputStyle.name.toLowerCase()}
+      disable-results-upload: $disableResultsUpload
+      default-class-test-time: $defaultClassTestTime
    """.trimIndent()
     }
 }
 
+val AndroidArgs.isDontAutograntPermissions
+    get() = !(grantPermissions.isNotNull() && (grantPermissions.equals("all")))
+
 val AndroidArgs.isInstrumentationTest
-    get() = appApk != null && testApk != null ||
+    get() = appApk.isNotNull() &&
+            testApk.isNotNull() ||
             additionalAppTestApks.isNotEmpty() &&
-            (appApk != null || additionalAppTestApks.all { (app, _) -> app != null })
+            (appApk.isNotNull() || additionalAppTestApks.all { (app, _) -> app.isNotNull() })
 
 val AndroidArgs.isRoboTest
-    get() = appApk != null &&
-            (roboDirectives.isNotEmpty() || roboScript != null)
+    get() = appApk.isNotNull() &&
+            (roboDirectives.isNotEmpty() || roboScript.isNotNull())
+
+val AndroidArgs.isSanityRobo
+    get() = appApk.isNotNull() &&
+            testApk.isNull() &&
+            roboScript.isNull() &&
+            additionalAppTestApks.isEmpty()
+
+private fun String?.isNull() = this == null
+private fun String?.isNotNull() = isNull().not()

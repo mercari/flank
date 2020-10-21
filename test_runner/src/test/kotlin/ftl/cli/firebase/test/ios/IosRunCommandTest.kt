@@ -1,11 +1,17 @@
 package ftl.cli.firebase.test.ios
 
 import com.google.common.truth.Truth.assertThat
+import ftl.args.IosArgs
 import ftl.config.Device
 import ftl.config.FtlConstants
 import ftl.config.FtlConstants.isWindows
+import ftl.gc.GcStorage
+import ftl.run.IOS_SHARD_FILE
+import ftl.run.dumpShards
 import ftl.test.util.FlankTestRunner
-import org.junit.Assert.fail
+import io.mockk.mockkObject
+import io.mockk.mockkStatic
+import io.mockk.verify
 import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
@@ -37,16 +43,12 @@ class IosRunCommandTest {
     fun iosRunCommandRuns() {
         assumeFalse(isWindows)
 
-        try {
-            val runCmd = IosRunCommand()
-            runCmd.configPath = "./src/test/kotlin/ftl/fixtures/ios.yml"
-            runCmd.run()
+        val runCmd = IosRunCommand()
+        runCmd.configPath = "./src/test/kotlin/ftl/fixtures/ios.yml"
+        runCmd.run()
 
-            val output = systemOutRule.log
-            assertThat(output).contains("1 / 1 (100.00%)")
-        } catch (_: Throwable) {
-            fail()
-        }
+        val output = systemOutRule.log
+        assertThat(output).contains("1 / 1 (100.00%)")
     }
 
     @Test
@@ -325,5 +327,47 @@ class IosRunCommandTest {
         CommandLine(cmd).parseArgs("--obfuscate")
 
         assertThat(cmd.obfuscate).isTrue()
+    }
+
+    @Test
+    fun `default-test-time parse`() {
+        val cmd = IosRunCommand()
+        CommandLine(cmd).parseArgs("--default-test-time=15")
+
+        assertThat(cmd.config.common.flank.defaultTestTime).isEqualTo(15.0)
+    }
+
+    @Test
+    fun `use-average-test-time-for-new-tests parse`() {
+        val cmd = IosRunCommand()
+        CommandLine(cmd).parseArgs("--use-average-test-time-for-new-tests")
+
+        assertThat(cmd.config.common.flank.useAverageTestTimeForNewTests).isTrue()
+    }
+
+    @Test
+    fun `should dump shards on ios test run`() {
+        assumeFalse(isWindows) // TODO remove in #1180
+
+        mockkStatic("ftl.run.DumpShardsKt")
+        val runCmd = IosRunCommand()
+        runCmd.configPath = "./src/test/kotlin/ftl/fixtures/simple-ios-flank.yml"
+        runCmd.run()
+        verify { dumpShards(any<IosArgs>(), any()) }
+    }
+
+    @Test
+    fun `should dump shards on ios test run and not upload when disable-upload-results set`() {
+        assumeFalse(isWindows) // TODO remove in #1180
+
+        mockkStatic("ftl.run.DumpShardsKt")
+        mockkObject(GcStorage) {
+            val runCmd = IosRunCommand()
+            runCmd.configPath = "./src/test/kotlin/ftl/fixtures/simple-ios-flank.yml"
+            CommandLine(runCmd).parseArgs("--disable-results-upload")
+            runCmd.run()
+            verify { dumpShards(any<IosArgs>(), any()) }
+            verify(inverse = true) { GcStorage.upload(IOS_SHARD_FILE, any(), any()) }
+        }
     }
 }

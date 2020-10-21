@@ -2,7 +2,8 @@ package ftl.args
 
 import com.google.common.annotations.VisibleForTesting
 import ftl.ios.Xctestrun.findTestNames
-import ftl.util.FlankConfigurationError
+import ftl.run.exception.FlankConfigurationError
+import ftl.shard.Chunk
 import ftl.util.FlankTestMethod
 
 data class IosArgs(
@@ -10,11 +11,12 @@ data class IosArgs(
     val xctestrunZip: String,
     val xctestrunFile: String,
     val xcodeVersion: String?,
-    val testTargets: List<String>
+    val testTargets: List<String>,
+    val obfuscateDumpShards: Boolean
 ) : IArgs by commonArgs {
 
     override val useLegacyJUnitResult = true
-    val testShardChunks: ShardChunks by lazy { calculateShardChunks() }
+    val testShardChunks: List<Chunk> by lazy { calculateShardChunks() }
 
     companion object : IosArgsCompanion()
 
@@ -43,6 +45,8 @@ IosArgs
       num-test-runs: $repeatTests
       smart-flank-gcs-path: $smartFlankGcsPath
       smart-flank-disable-upload: $smartFlankDisableUpload
+      default-test-time: $defaultTestTime
+      use-average-test-time-for-new-tests: $useAverageTestTimeForNewTests
       test-targets-always-run:${ArgsToString.listToString(testTargetsAlwaysRun)}
       files-to-download:${ArgsToString.listToString(filesToDownload)}
       keep-file-path: $keepFilePath
@@ -55,12 +59,14 @@ IosArgs
       run-timeout: $runTimeout
       ignore-failed-tests: $ignoreFailedTests
       output-style: ${outputStyle.name.toLowerCase()}
+      disable-results-upload: $disableResultsUpload
+      default-class-test-time: $defaultClassTestTime
     """.trimIndent()
     }
 }
 
 private fun IosArgs.calculateShardChunks() = if (disableSharding)
-    listOf(emptyList()) else
+    emptyList() else
     ArgsHelper.calculateShards(
         filteredTests = filterTests(findTestNames(xctestrunFile), testTargets)
             .distinct()

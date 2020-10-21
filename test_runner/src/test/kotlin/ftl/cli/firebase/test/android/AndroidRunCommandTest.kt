@@ -1,10 +1,20 @@
 package ftl.cli.firebase.test.android
 
 import com.google.common.truth.Truth.assertThat
+import ftl.args.AndroidArgs
 import ftl.args.yml.AppTestPair
 import ftl.config.Device
 import ftl.config.FtlConstants
+import ftl.gc.GcStorage
+import ftl.run.ANDROID_SHARD_FILE
+import ftl.run.exception.FlankConfigurationError
+import ftl.run.platform.android.createAndroidTestContexts
+import ftl.run.saveShardChunks
 import ftl.test.util.FlankTestRunner
+import io.mockk.coVerify
+import io.mockk.mockkObject
+import io.mockk.mockkStatic
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -466,5 +476,93 @@ class AndroidRunCommandTest {
         CommandLine(cmd).parseArgs("--obfuscate")
 
         assertThat(cmd.obfuscate).isTrue()
+    }
+
+    @Test
+    fun `default-test-time parse`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs("--default-test-time=15")
+
+        assertThat(cmd.config.common.flank.defaultTestTime).isEqualTo(15.0)
+    }
+
+    @Test
+    fun `use-average-test-time-for-new-tests parse`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs("--use-average-test-time-for-new-tests")
+
+        assertThat(cmd.config.common.flank.useAverageTestTimeForNewTests).isTrue()
+    }
+
+    @Test(expected = FlankConfigurationError::class)
+    fun `should throw if --full-junit-result and JUnitResult xml used`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs("--full-junit-result", "--smart-flank-gcs-path=gs://test-lab-v9cn46bb990nx-kz69ymd4nm9aq/2020-08-26_15-20-23.850738_rtGt/JUnitReport.xml")
+        cmd.run()
+    }
+
+    @Test(expected = FlankConfigurationError::class)
+    fun `should throw if FullJUnitResult xml used and --full-junit-result not set`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs("--smart-flank-gcs-path=gs://test-lab-v9cn46bb990nx-kz69ymd4nm9aq/2020-08-26_15-20-23.850738_rtGt/FullJUnitReport.xml")
+        cmd.run()
+    }
+
+    @Test
+    fun `should not throw if --full-junit-result and smart flank path different than JUnitReport xml`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs("--full-junit-result", "--smart-flank-gcs-path=gs://test-lab-v9cn46bb990nx-kz69ymd4nm9aq/2020-08-26_15-20-23.850738_rtGt/JUnitReportTest.xml")
+        cmd.run()
+    }
+
+    @Test
+    fun `should not throw if --full-junit-result not set and smart flank path different than JUnitReport xml`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs("--smart-flank-gcs-path=gs://test-lab-v9cn46bb990nx-kz69ymd4nm9aq/2020-08-26_15-20-23.850738_rtGt/JUnitReportTest.xml")
+        cmd.run()
+    }
+
+    @Test
+    fun `should not validate if smart-flank-disable-upload set`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs(
+            "--smart-flank-disable-upload",
+            "--full-junit-result",
+            "--smart-flank-gcs-path=gs://test-lab-v9cn46bb990nx-kz69ymd4nm9aq/2020-08-26_15-20-23.850738_rtGt/JUnitReport.xml"
+        )
+        cmd.run()
+    }
+
+    @Test
+    fun `should dump shards on android test run`() {
+        mockkStatic("ftl.run.DumpShardsKt")
+        val runCmd = AndroidRunCommand()
+        runCmd.configPath = "./src/test/kotlin/ftl/fixtures/simple-android-flank.yml"
+        runCmd.run()
+        verify { saveShardChunks(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `should dump shards on android test run and not upload when disable-upload-results set`() {
+        mockkStatic("ftl.run.DumpShardsKt")
+        mockkObject(GcStorage) {
+            val runCmd = AndroidRunCommand()
+            runCmd.configPath = "./src/test/kotlin/ftl/fixtures/simple-android-flank.yml"
+            CommandLine(runCmd).parseArgs("--disable-results-upload")
+            runCmd.run()
+            verify { saveShardChunks(any(), any(), any(), any()) }
+            verify(inverse = true) { GcStorage.upload(ANDROID_SHARD_FILE, any(), any()) }
+        }
+    }
+
+    @Test
+    fun `should calculate shards only one time on newRun`() {
+        mockkStatic("ftl.run.DumpShardsKt", "ftl.run.platform.android.CreateAndroidTestContextKt")
+        mockkObject(GcStorage) {
+            val runCmd = AndroidRunCommand()
+            runCmd.configPath = "./src/test/kotlin/ftl/fixtures/simple-android-flank.yml"
+            runCmd.run()
+            coVerify(exactly = 1) { any<AndroidArgs>().createAndroidTestContexts() }
+        }
     }
 }

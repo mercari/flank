@@ -5,10 +5,13 @@ import com.google.common.truth.Truth.assertThat
 import ftl.args.IArgs.Companion.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE
 import ftl.args.IArgs.Companion.AVAILABLE_VIRTUAL_SHARD_COUNT_RANGE
 import ftl.args.yml.AppTestPair
+import ftl.args.yml.Type
 import ftl.cli.firebase.test.android.AndroidRunCommand
 import ftl.config.Device
 import ftl.config.FtlConstants.defaultAndroidModel
 import ftl.config.FtlConstants.defaultAndroidVersion
+import ftl.gc.GcStorage
+import ftl.gc.GcStorage.exist
 import ftl.gc.android.setupAndroidTest
 import ftl.run.model.InstrumentationTestContext
 import ftl.run.platform.android.createAndroidTestConfig
@@ -20,20 +23,25 @@ import ftl.test.util.TestHelper.absolutePath
 import ftl.test.util.TestHelper.assert
 import ftl.test.util.TestHelper.getPath
 import ftl.test.util.assertThrowsWithMessage
-import ftl.util.FlankGeneralError
-import ftl.util.FlankConfigurationError
-import ftl.util.IncompatibleTestDimensionError
+import ftl.run.exception.FlankGeneralError
+import ftl.run.exception.FlankConfigurationError
+import ftl.run.exception.IncompatibleTestDimensionError
+import ftl.shard.Chunk
+import ftl.shard.TestMethod
 import ftl.util.asFileReference
 import io.mockk.every
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Assert.fail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Rule
 import org.junit.Test
+import org.junit.contrib.java.lang.system.SystemOutRule
 import org.junit.runner.RunWith
 import picocli.CommandLine
 import java.io.StringReader
@@ -44,9 +52,15 @@ import java.util.UUID
 @Suppress("TooManyFunctions")
 @RunWith(FlankTestRunner::class)
 class AndroidArgsTest {
+
+    @Rule
+    @JvmField
+    val systemOutRule: SystemOutRule = SystemOutRule().enableLog()
+
     private val empty = emptyList<String>()
     private val appApk = "../test_projects/android/apks/app-debug.apk"
     private val invalidApk = "../test_projects/android/apks/invalid.apk"
+    private val nonExistingApk = "../test_projects/android/apks/app-debug_non_existing.apk"
     private val testApk = "../test_projects/android/apks/app-debug-androidTest.apk"
     private val testErrorApk = "../test_projects/android/apks/error-androidTest.apk"
     private val testFlakyApk = "../test_projects/android/apks/flaky-androidTest.apk"
@@ -84,6 +98,8 @@ class AndroidArgsTest {
           directories-to-pull:
           - /sdcard/screenshots
           - /sdcard/screenshots2
+          grant-permissions: all
+          type: instrumentation
           other-files:
             /sdcard/dir1/file1.txt: $appApk
             /sdcard/dir2/file2.jpg: $testApk
@@ -108,6 +124,8 @@ class AndroidArgsTest {
           max-test-shards: 7
           shard-time: 60
           num-test-runs: 8
+          default-test-time: 15.0
+          use-average-test-time-for-new-tests: true
           files-to-download:
             - /sdcard/screenshots
             - /sdcard/screenshots2
@@ -123,6 +141,8 @@ class AndroidArgsTest {
           run-timeout: 20m
           ignore-failed-tests: true
           output-style: single
+          disable-results-upload: true
+          default-class-test-time: 30.0
       """
 
     @After
@@ -155,7 +175,7 @@ class AndroidArgsTest {
               - model: no
                 version: nope
           """
-            )
+            ).validate()
         }
     }
 
@@ -171,7 +191,7 @@ class AndroidArgsTest {
           - model: NexusLowRes
             version: nope
       """
-            )
+            ).validate()
         }
     }
 
@@ -187,7 +207,7 @@ class AndroidArgsTest {
           - model: shamu
             version: 18
       """
-            )
+            ).validate()
         }
     }
 
@@ -220,12 +240,15 @@ class AndroidArgsTest {
             assert(useOrchestrator, false)
             assert(environmentVariables, linkedMapOf("clearPackageData" to "true", "randomEnvVar" to "false"))
             assert(directoriesToPull, listOf("/sdcard/screenshots", "/sdcard/screenshots2"))
+            assert(grantPermissions, "all")
             assert(
-                otherFiles, mapOf(
+                otherFiles,
+                mapOf(
                     "/sdcard/dir1/file1.txt" to appApkAbsolutePath,
                     "/sdcard/dir2/file2.jpg" to testApkAbsolutePath
                 )
             )
+            assert(type, Type.INSTRUMENTATION)
             assert(performanceMetrics, false)
             assert(testRunnerClass, "com.foo.TestRunner")
             assert(
@@ -236,7 +259,8 @@ class AndroidArgsTest {
                 )
             )
             assert(
-                devices, listOf(
+                devices,
+                listOf(
                     Device("NexusLowRes", "23", "en", "portrait", isVirtual = true),
                     Device("NexusLowRes", "24", "en", "portrait", isVirtual = true)
                 )
@@ -249,7 +273,8 @@ class AndroidArgsTest {
             assert(repeatTests, 8)
             assert(filesToDownload, listOf("/sdcard/screenshots", "/sdcard/screenshots2"))
             assert(
-                testTargetsAlwaysRun, listOf(
+                testTargetsAlwaysRun,
+                listOf(
                     "class example.Test#grantPermission",
                     "class example.Test#grantPermission2"
                 )
@@ -265,7 +290,8 @@ class AndroidArgsTest {
     fun androidArgsToString() {
         val androidArgs = AndroidArgs.load(androidNonDefault)
         assert(
-            androidArgs.toString(), """
+            androidArgs.toString(),
+            """
 AndroidArgs
     gcloud:
       results-bucket: mockBucket
@@ -286,12 +312,16 @@ AndroidArgs
         - $testFlakyApkAbsolutePath
       auto-google-login: false
       use-orchestrator: false
-      directories-to-pull:
+      directories-to-pull: 
         - /sdcard/screenshots
         - /sdcard/screenshots2
-      other-files:
+      grant-permissions: all
+      type: instrumentation
+      other-files: 
         /sdcard/dir1/file1.txt: $appApkAbsolutePath
         /sdcard/dir2/file2.jpg: $testApkAbsolutePath
+      scenario-numbers: 
+      scenario-labels: 
       performance-metrics: false
       num-uniform-shards: null
       test-runner-class: com.foo.TestRunner
@@ -317,6 +347,8 @@ AndroidArgs
       num-test-runs: 8
       smart-flank-gcs-path:${' '}
       smart-flank-disable-upload: false
+      default-test-time: 15.0
+      use-average-test-time-for-new-tests: true
       files-to-download:
         - /sdcard/screenshots
         - /sdcard/screenshots2
@@ -336,6 +368,8 @@ AndroidArgs
       legacy-junit-result: false
       ignore-failed-tests: true
       output-style: single
+      disable-results-upload: true
+      default-class-test-time: 30.0
 """.trimIndent()
         )
     }
@@ -361,8 +395,12 @@ AndroidArgs
       additional-apks: 
       auto-google-login: false
       use-orchestrator: true
-      directories-to-pull:
-      other-files:
+      directories-to-pull: 
+      grant-permissions: all
+      type: null
+      other-files: 
+      scenario-numbers: 
+      scenario-labels: 
       performance-metrics: false
       num-uniform-shards: null
       test-runner-class: null
@@ -382,6 +420,8 @@ AndroidArgs
       num-test-runs: 1
       smart-flank-gcs-path: 
       smart-flank-disable-upload: false
+      default-test-time: 120.0
+      use-average-test-time-for-new-tests: false
       files-to-download:
       test-targets-always-run:
       disable-sharding: false
@@ -395,7 +435,10 @@ AndroidArgs
       legacy-junit-result: true
       ignore-failed-tests: false
       output-style: multi
-        """.trimIndent(), args.toString()
+      disable-results-upload: false
+      default-class-test-time: 240.0
+        """.trimIndent(),
+            args.toString()
         )
     }
 
@@ -490,7 +533,7 @@ AndroidArgs
         flank:
           disable-sharding: true
       """
-        val androidArgs = AndroidArgs.load(yaml)
+        val androidArgs = AndroidArgs.load(yaml).validate()
         val testShardChunks = runBlocking { androidArgs.createAndroidTestContexts() }
         assertThat(testShardChunks).hasSize(0)
     }
@@ -502,7 +545,7 @@ AndroidArgs
           app: $invalidApk
           test: $invalidApk
       """
-        val androidArgs = AndroidArgs.load(yaml)
+        val androidArgs = AndroidArgs.load(yaml).validate()
         val testShardChunks = runBlocking { androidArgs.createAndroidTestContexts() }
         assertThat(testShardChunks).hasSize(0)
     }
@@ -517,9 +560,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).appApk).isEqualTo(appApkAbsolutePath)
+        assertThat(AndroidArgs.load(yaml).validate().appApk).isEqualTo(appApkAbsolutePath)
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.appApk).isEqualTo(testApkAbsolutePath)
     }
 
@@ -533,9 +576,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).testApk).isEqualTo(testApkAbsolutePath)
+        assertThat(AndroidArgs.load(yaml).validate().testApk).isEqualTo(testApkAbsolutePath)
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.testApk).isEqualTo(appApkAbsolutePath)
     }
 
@@ -555,9 +598,9 @@ AndroidArgs
             - class com.example.app.ExampleUiTest#testPasses
             - class com.example.app.ExampleUiTest#testFails
       """
-        assertThat(AndroidArgs.load(yaml).testTargets.size).isEqualTo(3)
+        assertThat(AndroidArgs.load(yaml).validate().testTargets.size).isEqualTo(3)
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.testTargets.size).isEqualTo(2)
         assertThat(androidArgs.testTargets).isEqualTo(listOf(testTarget, testTarget))
     }
@@ -573,9 +616,9 @@ AndroidArgs
           test: $testApk
           use-orchestrator: false
       """
-        assertThat(AndroidArgs.load(yaml).useOrchestrator).isFalse()
+        assertThat(AndroidArgs.load(yaml).validate().useOrchestrator).isFalse()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.useOrchestrator).isTrue()
     }
 
@@ -590,9 +633,9 @@ AndroidArgs
           test: $testApk
           use-orchestrator: true
       """
-        assertThat(AndroidArgs.load(yaml).useOrchestrator).isTrue()
+        assertThat(AndroidArgs.load(yaml).validate().useOrchestrator).isTrue()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.useOrchestrator).isFalse()
     }
 
@@ -607,9 +650,9 @@ AndroidArgs
           test: $testApk
           auto-google-login: false
       """
-        assertThat(AndroidArgs.load(yaml).autoGoogleLogin).isFalse()
+        assertThat(AndroidArgs.load(yaml).validate().autoGoogleLogin).isFalse()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.autoGoogleLogin).isTrue()
     }
 
@@ -624,9 +667,9 @@ AndroidArgs
           test: $testApk
           auto-google-login: true
       """
-        assertThat(AndroidArgs.load(yaml).autoGoogleLogin).isTrue()
+        assertThat(AndroidArgs.load(yaml).validate().autoGoogleLogin).isTrue()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.autoGoogleLogin).isFalse()
     }
 
@@ -641,9 +684,9 @@ AndroidArgs
           test: $testApk
           performance-metrics: false
       """
-        assertThat(AndroidArgs.load(yaml).performanceMetrics).isFalse()
+        assertThat(AndroidArgs.load(yaml).validate().performanceMetrics).isFalse()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.performanceMetrics).isTrue()
     }
 
@@ -658,9 +701,9 @@ AndroidArgs
           test: $testApk
           performance-metrics: true
       """
-        assertThat(AndroidArgs.load(yaml).performanceMetrics).isTrue()
+        assertThat(AndroidArgs.load(yaml).validate().performanceMetrics).isTrue()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.performanceMetrics).isFalse()
     }
 
@@ -675,9 +718,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).numUniformShards).isNull()
+        assertThat(AndroidArgs.load(yaml).validate().numUniformShards).isNull()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.numUniformShards).isEqualTo(expected)
     }
 
@@ -691,7 +734,7 @@ AndroidArgs
         flank:
           max-test-shards: ${AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.last}
       """
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -704,9 +747,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).testRunnerClass).isNull()
+        assertThat(AndroidArgs.load(yaml).validate().testRunnerClass).isNull()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.testRunnerClass).isEqualTo("com.foo.bar.TestRunner")
     }
 
@@ -720,9 +763,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).environmentVariables).isEmpty()
+        assertThat(AndroidArgs.load(yaml).validate().environmentVariables).isEmpty()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         val expectedMap = mapOf("a" to "1", "b" to "2")
         assertThat(androidArgs.environmentVariables).isEqualTo(expectedMap)
     }
@@ -737,9 +780,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).directoriesToPull).isEmpty()
+        assertThat(AndroidArgs.load(yaml).validate().directoriesToPull).isEmpty()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.directoriesToPull).isEqualTo(listOf("/sdcard/test", "/data/local/tmp/test"))
     }
 
@@ -753,9 +796,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).directoriesToPull).isEmpty()
+        assertThat(AndroidArgs.load(yaml).validate().directoriesToPull).isEmpty()
 
-        AndroidArgs.load(yaml, cli)
+        AndroidArgs.load(yaml, cli).validate()
     }
 
     @Test
@@ -768,9 +811,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).filesToDownload).isEmpty()
+        assertThat(AndroidArgs.load(yaml).validate().filesToDownload).isEmpty()
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.filesToDownload).isEqualTo(listOf("a", "b"))
     }
 
@@ -785,11 +828,11 @@ AndroidArgs
           test: $testApk
       """
         val expectedDefaultDevice = Device(defaultAndroidModel, defaultAndroidVersion, isVirtual = true)
-        val defaultDevices = AndroidArgs.load(yaml).devices
+        val defaultDevices = AndroidArgs.load(yaml).validate().devices
         assertThat(defaultDevices.first()).isEqualTo(expectedDefaultDevice)
         assertThat(defaultDevices.size).isEqualTo(1)
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         val expectedDevice = Device("shamu", "22", "zh_CN", "default", isVirtual = false)
         val actualDevices = androidArgs.devices
         assertThat(actualDevices.first()).isEqualTo(expectedDevice)
@@ -807,7 +850,7 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         val expectedDevice = Device("shamu", "22", "zh_CN", "default", false)
         val actualDevices = androidArgs.devices
         assertThat(actualDevices.size).isEqualTo(2)
@@ -828,8 +871,8 @@ AndroidArgs
           test: $testApk
           results-bucket: b
       """
-        assertThat(AndroidArgs.load(yaml).resultsBucket).isEqualTo("b")
-        assertThat(AndroidArgs.load(yaml, cli).resultsBucket).isEqualTo("a")
+        assertThat(AndroidArgs.load(yaml).validate().resultsBucket).isEqualTo("b")
+        assertThat(AndroidArgs.load(yaml, cli).validate().resultsBucket).isEqualTo("a")
     }
 
     @Test
@@ -843,8 +886,8 @@ AndroidArgs
           test: $testApk
           record-video: false
       """
-        assertThat(AndroidArgs.load(yaml).recordVideo).isFalse()
-        assertThat(AndroidArgs.load(yaml, cli).recordVideo).isTrue()
+        assertThat(AndroidArgs.load(yaml).validate().recordVideo).isFalse()
+        assertThat(AndroidArgs.load(yaml, cli).validate().recordVideo).isTrue()
     }
 
     @Test
@@ -858,8 +901,8 @@ AndroidArgs
           test: $testApk
           record-video: true
       """
-        assertThat(AndroidArgs.load(yaml).recordVideo).isTrue()
-        assertThat(AndroidArgs.load(yaml, cli).recordVideo).isFalse()
+        assertThat(AndroidArgs.load(yaml).validate().recordVideo).isTrue()
+        assertThat(AndroidArgs.load(yaml, cli).validate().recordVideo).isFalse()
     }
 
     @Test
@@ -873,8 +916,8 @@ AndroidArgs
           test: $testApk
           timeout: 2m
       """
-        assertThat(AndroidArgs.load(yaml).testTimeout).isEqualTo("2m")
-        assertThat(AndroidArgs.load(yaml, cli).testTimeout).isEqualTo("1m")
+        assertThat(AndroidArgs.load(yaml).validate().testTimeout).isEqualTo("2m")
+        assertThat(AndroidArgs.load(yaml, cli).validate().testTimeout).isEqualTo("1m")
     }
 
     @Test
@@ -888,8 +931,8 @@ AndroidArgs
           test: $testApk
           async: false
       """
-        assertThat(AndroidArgs.load(yaml).async).isEqualTo(false)
-        assertThat(AndroidArgs.load(yaml, cli).async).isEqualTo(true)
+        assertThat(AndroidArgs.load(yaml).validate().async).isEqualTo(false)
+        assertThat(AndroidArgs.load(yaml, cli).validate().async).isEqualTo(true)
     }
 
     @Test
@@ -918,8 +961,8 @@ AndroidArgs
           test: $testApk
           results-history-name: a
       """
-        assertThat(AndroidArgs.load(yaml).resultsHistoryName).isEqualTo("a")
-        assertThat(AndroidArgs.load(yaml, cli).resultsHistoryName).isEqualTo("b")
+        assertThat(AndroidArgs.load(yaml).validate().resultsHistoryName).isEqualTo("a")
+        assertThat(AndroidArgs.load(yaml, cli).validate().resultsHistoryName).isEqualTo("b")
     }
 
     @Test
@@ -935,8 +978,8 @@ AndroidArgs
         flank:
           max-test-shards: 2
       """
-        assertThat(AndroidArgs.load(yaml).maxTestShards).isEqualTo(2)
-        assertThat(AndroidArgs.load(yaml, cli).maxTestShards).isEqualTo(3)
+        assertThat(AndroidArgs.load(yaml).validate().maxTestShards).isEqualTo(2)
+        assertThat(AndroidArgs.load(yaml, cli).validate().maxTestShards).isEqualTo(3)
     }
 
     @Test
@@ -952,8 +995,8 @@ AndroidArgs
         flank:
           shard-time: 2
       """
-        assertThat(AndroidArgs.load(yaml).shardTime).isEqualTo(2)
-        assertThat(AndroidArgs.load(yaml, cli).shardTime).isEqualTo(3)
+        assertThat(AndroidArgs.load(yaml).validate().shardTime).isEqualTo(2)
+        assertThat(AndroidArgs.load(yaml, cli).validate().shardTime).isEqualTo(3)
     }
 
     @Test
@@ -969,8 +1012,8 @@ AndroidArgs
         flank:
           disable-sharding: false
       """
-        assertThat(AndroidArgs.load(yaml).disableSharding).isEqualTo(false)
-        assertThat(AndroidArgs.load(yaml, cli).disableSharding).isEqualTo(true)
+        assertThat(AndroidArgs.load(yaml).validate().disableSharding).isEqualTo(false)
+        assertThat(AndroidArgs.load(yaml, cli).validate().disableSharding).isEqualTo(true)
     }
 
     @Test
@@ -986,8 +1029,8 @@ AndroidArgs
         flank:
           num-test-runs: 2
       """
-        assertThat(AndroidArgs.load(yaml).repeatTests).isEqualTo(2)
-        assertThat(AndroidArgs.load(yaml, cli).repeatTests).isEqualTo(3)
+        assertThat(AndroidArgs.load(yaml).validate().repeatTests).isEqualTo(2)
+        assertThat(AndroidArgs.load(yaml, cli).validate().repeatTests).isEqualTo(3)
     }
 
     @Test
@@ -1000,7 +1043,7 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml, cli).testTargetsAlwaysRun).isEqualTo(arrayListOf("com.A", "com.B"))
+        assertThat(AndroidArgs.load(yaml, cli).validate().testTargetsAlwaysRun).isEqualTo(arrayListOf("com.A", "com.B"))
     }
 
     @Test
@@ -1015,8 +1058,8 @@ AndroidArgs
           results-dir: results
       """
 
-        assertThat(AndroidArgs.load(yaml).resultsDir).isEqualTo("results")
-        assertThat(AndroidArgs.load(yaml, cli).resultsDir).isEqualTo("build")
+        assertThat(AndroidArgs.load(yaml).validate().resultsDir).isEqualTo("results")
+        assertThat(AndroidArgs.load(yaml, cli).validate().resultsDir).isEqualTo("build")
     }
 
     @Test
@@ -1029,9 +1072,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).flakyTestAttempts).isEqualTo(0)
+        assertThat(AndroidArgs.load(yaml).validate().flakyTestAttempts).isEqualTo(0)
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.flakyTestAttempts).isEqualTo(3)
     }
 
@@ -1046,9 +1089,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).smartFlankGcsPath).isEqualTo("")
+        assertThat(AndroidArgs.load(yaml).validate().smartFlankGcsPath).isEqualTo("")
 
-        val args = AndroidArgs.load(yaml, cli)
+        val args = AndroidArgs.load(yaml, cli).validate()
         assertThat(args.smartFlankGcsPath).isEqualTo(xml)
     }
 
@@ -1064,9 +1107,9 @@ AndroidArgs
         flank:
           local-result-dir: a
       """
-        assertThat(AndroidArgs.load(yaml).localResultDir).isEqualTo("a")
+        assertThat(AndroidArgs.load(yaml).validate().localResultDir).isEqualTo("a")
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.localResultDir).isEqualTo("b")
     }
 
@@ -1082,9 +1125,9 @@ AndroidArgs
         flank:
           smart-flank-disable-upload: false
       """
-        assertThat(AndroidArgs.load(yaml).smartFlankDisableUpload).isEqualTo(false)
+        assertThat(AndroidArgs.load(yaml).validate().smartFlankDisableUpload).isEqualTo(false)
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.smartFlankDisableUpload).isEqualTo(true)
     }
 
@@ -1104,12 +1147,12 @@ AndroidArgs
       """
         assertEquals(
             listOf(AppTestPair(appApkAbsolutePath, testErrorApkAbsolutePath)),
-            AndroidArgs.load(yaml).additionalAppTestApks
+            AndroidArgs.load(yaml).validate().additionalAppTestApks
         )
 
         assertEquals(
             listOf(AppTestPair(appApkAbsolutePath, testFlakyApkAbsolutePath)),
-            AndroidArgs.load(yaml, cli).additionalAppTestApks
+            AndroidArgs.load(yaml, cli).validate().additionalAppTestApks
         )
     }
 
@@ -1125,9 +1168,9 @@ AndroidArgs
         flank:
           keep-file-path: false
       """
-        assertThat(AndroidArgs.load(yaml).keepFilePath).isEqualTo(false)
+        assertThat(AndroidArgs.load(yaml).validate().keepFilePath).isEqualTo(false)
 
-        val androidArgs = AndroidArgs.load(yaml, cli)
+        val androidArgs = AndroidArgs.load(yaml, cli).validate()
         assertThat(androidArgs.keepFilePath).isEqualTo(true)
     }
 
@@ -1141,9 +1184,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).parsedTimeout).isEqualTo(Long.MAX_VALUE)
+        assertThat(AndroidArgs.load(yaml).validate().parsedTimeout).isEqualTo(Long.MAX_VALUE)
 
-        val args = AndroidArgs.load(yaml, cli)
+        val args = AndroidArgs.load(yaml, cli).validate()
         assertThat(args.parsedTimeout).isEqualTo(20 * 60 * 1000L)
     }
 
@@ -1157,9 +1200,9 @@ AndroidArgs
           app: $appApk
           test: $testApk
       """
-        assertThat(AndroidArgs.load(yaml).outputStyle).isEqualTo(OutputStyle.Multi)
+        assertThat(AndroidArgs.load(yaml).validate().outputStyle).isEqualTo(OutputStyle.Multi)
 
-        val args = AndroidArgs.load(yaml, cli)
+        val args = AndroidArgs.load(yaml, cli).validate()
         assertThat(args.outputStyle).isEqualTo(OutputStyle.Verbose)
     }
 
@@ -1172,7 +1215,7 @@ AndroidArgs
         flank:
           output-style: unknown
       """
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -1190,7 +1233,7 @@ AndroidArgs
             test: $testApk
         """.trimIndent()
 
-        val parsedYml = AndroidArgs.load(yaml)
+        val parsedYml = AndroidArgs.load(yaml).validate()
         val (matrixMap, chunks) = runBlocking { runAndroidTests(parsedYml) }
         assertEquals(4, matrixMap.map.size)
         assertEquals(4, chunks.size)
@@ -1207,7 +1250,7 @@ AndroidArgs
             test: $testErrorApk
         """.trimIndent()
 
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -1220,7 +1263,7 @@ AndroidArgs
             test: $testApk
         """.trimIndent()
 
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -1253,7 +1296,7 @@ AndroidArgs
           robo-script: $appApk
         """.trimIndent()
 
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -1264,7 +1307,7 @@ AndroidArgs
           robo-script: $appApk
         """.trimIndent()
 
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
 
         assertEquals(
             appApkAbsolutePath,
@@ -1282,7 +1325,7 @@ AndroidArgs
             click:resource_name_2: ""
         """.trimIndent()
 
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
 
         assertEquals(
             args.roboDirectives,
@@ -1302,7 +1345,7 @@ AndroidArgs
           app: $appApk
         """.trimIndent()
 
-        val args = AndroidArgs.load(yaml, cli)
+        val args = AndroidArgs.load(yaml, cli).validate()
 
         assertEquals(
             args.roboScript,
@@ -1328,7 +1371,7 @@ AndroidArgs
         mockkStatic("ftl.run.platform.android.CreateAndroidTestContextKt")
         every { runBlocking { any<AndroidArgs>().createAndroidTestContexts() } } returns listOf()
 
-        val parsedYml = AndroidArgs.load(yaml)
+        val parsedYml = AndroidArgs.load(yaml).validate()
         runBlocking { runAndroidTests(parsedYml) }
     }
 
@@ -1345,7 +1388,7 @@ AndroidArgs
           test: $testApk
           results-dir: $resultsDir
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
         if (Files.exists(directoryPath)) {
             fail("Test directory ($resultsDir) shouldn't be created! It's a remote directory on the cloud!")
         }
@@ -1375,7 +1418,7 @@ AndroidArgs
         }.forEach { yaml ->
             assertEquals(
                 OutputStyle.Multi,
-                AndroidArgs.load(yaml).defaultOutputStyle
+                AndroidArgs.load(yaml).validate().defaultOutputStyle
             )
         }
     }
@@ -1390,12 +1433,15 @@ AndroidArgs
         flank:
           disable-sharding: true
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         val androidTestConfig = args.createAndroidTestConfig(
             InstrumentationTestContext(
                 app = "app".asFileReference(),
                 test = "test".asFileReference(),
-                shards = listOf(listOf("test"), listOf("test"))
+                shards = listOf(
+                    Chunk(listOf(TestMethod(name = "test", time = 0.0))),
+                    Chunk(listOf(TestMethod(name = "test", time = 0.0)))
+                )
             )
         )
         val testSpecification = TestSpecification().setupAndroidTest(androidTestConfig)
@@ -1414,12 +1460,15 @@ AndroidArgs
         flank:
           disable-sharding: true
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         val androidTestConfig = args.createAndroidTestConfig(
             InstrumentationTestContext(
                 app = "app".asFileReference(),
                 test = "test".asFileReference(),
-                shards = listOf(listOf("test"), listOf("test"))
+                shards = listOf(
+                    Chunk(listOf(TestMethod(name = "test", time = 0.0))),
+                    Chunk(listOf(TestMethod(name = "test", time = 0.0)))
+                )
             )
         )
         val testSpecification = TestSpecification().setupAndroidTest(androidTestConfig)
@@ -1435,7 +1484,7 @@ AndroidArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         assertEquals(AVAILABLE_VIRTUAL_SHARD_COUNT_RANGE.last, args.maxTestShards)
     }
 
@@ -1449,7 +1498,7 @@ AndroidArgs
           max-test-shards: -1
           disable-results-upload: true
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         assertTrue(args.disableResultsUpload)
     }
 
@@ -1462,7 +1511,7 @@ AndroidArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         assertFalse(args.disableResultsUpload)
     }
 
@@ -1476,7 +1525,7 @@ AndroidArgs
           max-test-shards: -1
           disable-results-upload: true
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         assertEquals(AVAILABLE_VIRTUAL_SHARD_COUNT_RANGE.last, args.maxTestShards)
     }
 
@@ -1490,7 +1539,7 @@ AndroidArgs
           max-test-shards: 10
           disable-results-upload: true
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         assertEquals(10, args.maxTestShards)
     }
 
@@ -1504,7 +1553,7 @@ AndroidArgs
           max-test-shards: ${AVAILABLE_VIRTUAL_SHARD_COUNT_RANGE.last + 1}
           disable-results-upload: true
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test(expected = FlankConfigurationError::class)
@@ -1522,7 +1571,7 @@ AndroidArgs
           max-test-shards: ${AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.last + 1}
           disable-results-upload: true
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -1540,7 +1589,7 @@ AndroidArgs
           max-test-shards: -1
           disable-results-upload: true
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         assertEquals(AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.last, args.maxTestShards)
     }
 
@@ -1563,7 +1612,7 @@ AndroidArgs
           max-test-shards: -1
           disable-results-upload: true
         """.trimIndent()
-        val args = AndroidArgs.load(yaml)
+        val args = AndroidArgs.load(yaml).validate()
         assertEquals(AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.last, args.maxTestShards)
     }
 
@@ -1587,8 +1636,9 @@ AndroidArgs
           full-junit-result: true
           legacy-junit-result: true
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
+
     @Test
     fun `should not throw when --legacy-junit-result set and --full-junit-result not set`() {
         val yaml = """
@@ -1609,7 +1659,7 @@ AndroidArgs
           full-junit-result: false
           legacy-junit-result: true
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -1632,7 +1682,7 @@ AndroidArgs
           full-junit-result: true
           legacy-junit-result: false
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test
@@ -1657,7 +1707,7 @@ AndroidArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
     }
 
     @Test(expected = FlankGeneralError::class)
@@ -1674,12 +1724,425 @@ AndroidArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        AndroidArgs.load(yaml)
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should set defaultTestTime`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+        flank:
+          max-test-shards: -1
+          default-test-time: 15
+        """.trimIndent()
+        val args = AndroidArgs.load(yaml).validate()
+        assertEquals(args.defaultTestTime, 15.0, 0.01)
+    }
+
+    @Test
+    fun `should set defaultTestTime to default value if not specified`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+        flank:
+          max-test-shards: -1
+          use-average-test-time-for-new-tests: true
+        """.trimIndent()
+        val args = AndroidArgs.load(yaml).validate()
+        assertEquals(args.defaultTestTime, 120.0, 0.01)
+    }
+
+    @Test
+    fun `should useAverageTestTimeForNewTests set to true`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+        flank:
+          max-test-shards: -1
+          use-average-test-time-for-new-tests: true
+        """.trimIndent()
+        val args = AndroidArgs.load(yaml).validate()
+        assertTrue(args.useAverageTestTimeForNewTests)
+    }
+
+    @Test
+    fun `should useAverageTestTimeForNewTests set to false by default`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        val args = AndroidArgs.load(yaml).validate()
+        assertFalse(args.useAverageTestTimeForNewTests)
+    }
+
+    @Test
+    fun `should not throw when other files exists`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          other-files:
+            /sdcard/dir1/file1.txt: $appApk
+            /sdcard/dir2/file2.jpg: $testApk
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test(expected = FlankGeneralError::class)
+    fun `should throw when other files don't exist`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          other-files:
+            /sdcard/dir1/file1.txt: $nonExistingApk
+            /sdcard/dir2/file2.jpg: $nonExistingApk
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should show warning message when bucket exist and legacy junit result used`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          results-dir: test
+        flank:
+          max-test-shards: -1
+          legacy-junit-result: true
+        """.trimIndent()
+        mockkObject(GcStorage) {
+            every { exist(any(), any()) } returns true
+
+            // when
+            AndroidArgs.load(yaml).validate()
+
+            // then
+            assertTrue(systemOutRule.log.contains("WARNING: Google cloud storage result directory should be unique, otherwise results from multiple test matrices will be overwritten or intermingled"))
+        }
+    }
+
+    @Test
+    fun `should not print Google cloud storage warning when legacy junit results is false`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          results-dir: test
+        flank:
+          max-test-shards: -1
+          legacy-junit-result: false
+        """.trimIndent()
+
+        // when
+        AndroidArgs.load(yaml).validate()
+
+        // then
+        assertFalse(systemOutRule.log.contains("WARNING: Google cloud storage result directory should be unique, otherwise results from multiple test matrices will be overwritten or intermingled"))
+    }
+
+    @Test
+    fun `should not print result-dir warning when same directory does not exist`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          results-dir: test
+        flank:
+          max-test-shards: -1
+          legacy-junit-result: true
+        """.trimIndent()
+        mockkObject(GcStorage) {
+            every { exist(any(), any()) } returns false
+
+            // when
+            AndroidArgs.load(yaml).validate()
+
+            // then
+            assertFalse(systemOutRule.log.contains("WARNING: Google cloud storage result directory should be unique, otherwise results from multiple test matrices will be overwritten or intermingled"))
+        }
+    }
+
+    @Test(expected = FlankGeneralError::class)
+    fun `should throw exception if incorrect permission requested`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          grant-permissions: error
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should Not throw exception if correct permission requested All`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          grant-permissions: all
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should Not throw exception if correct permission requested None`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          grant-permissions: none
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+    @Test(expected = FlankGeneralError::class)
+    fun `should throw exception if incorrect type requested`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          grant-permissions: error
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should Not throw exception if correct type requested game-loop`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: game-loop
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should Not throw exception if correct type requested instrumental`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: instrumentation
+          test-runner-class: com.foo.TestRunner
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test(expected = FlankConfigurationError::class)
+    fun `should throw exception if correct type requested instrumental but no test runner set`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          test
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: instrumentation
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should Not throw exception if correct type requested robo`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: robo
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test(expected = FlankConfigurationError::class)
+    fun `should throw exception if incorrect type requested and scenario labels provided`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: robo
+          scenario-labels: 
+            - test1 
+            - test2
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should not throw exception if game-loop and scenario labels provided`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: game-loop
+          scenario-labels: 
+            - test1 
+            - test2
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should not throw exception if game-loop and scenario numbers provided`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: game-loop
+          scenario-numbers: 
+            - 1
+            - 2
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test(expected = FlankConfigurationError::class)
+    fun `should throw exception if game-loop not provided and scenario numbers provided`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: robo
+          scenario-numbers: 
+            - 1 
+            - 2
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test(expected = FlankConfigurationError::class)
+    fun `should throw exception if invalid scenario numbers provided`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: game-loop
+          scenario-numbers: 
+            - error
+            - 2
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should Not throw exception if valid scenario numbers provided`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: game-loop
+          scenario-numbers: 
+            - 1
+            - 2
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `should Not throw exception if valid scenario numbers provided and scenario labels`() {
+        val yaml = """
+        gcloud:
+          app: $appApk
+          test: $testApk
+          device:
+            - model: Nexus6
+              version: 25
+              locale: en
+              orientation: portrait
+          type: game-loop
+          scenario-labels:
+            - label1
+            - label2
+          scenario-numbers: 
+            - 1
+            - 2
+        """.trimIndent()
+        AndroidArgs.load(yaml).validate()
     }
 }
 
 private fun AndroidArgs.Companion.load(yamlData: String, cli: AndroidRunCommand? = null): AndroidArgs =
     load(StringReader(yamlData), cli)
 
-fun getAndroidShardChunks(args: AndroidArgs): ShardChunks =
+fun getAndroidShardChunks(args: AndroidArgs): List<Chunk> =
     runBlocking { (args.createAndroidTestContexts().first() as InstrumentationTestContext).shards }

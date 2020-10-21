@@ -1,11 +1,10 @@
 package ftl.run.common
 
-import com.google.gson.reflect.TypeToken
 import ftl.args.IArgs
 import ftl.config.FtlConstants
 import ftl.json.MatrixMap
 import ftl.json.SavedMatrix
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankGeneralError
 import java.nio.file.Paths
 
 /** Reads in the last matrices from the localResultDir folder **/
@@ -24,8 +23,7 @@ internal fun matrixPathToObj(path: String, args: IArgs): MatrixMap {
     }
     val json = filePath.readText()
 
-    val listOfSavedMatrix = object : TypeToken<MutableMap<String, SavedMatrix>>() {}.type
-    val map: MutableMap<String, SavedMatrix> = prettyPrint.fromJson(json, listOfSavedMatrix)
+    val map: MutableMap<String, SavedMatrix> = fromJson(json)
 
     return MatrixMap(map, path)
 }

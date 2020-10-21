@@ -1,11 +1,12 @@
 package ftl.reports.xml
 
 import com.google.common.truth.Truth.assertThat
+import ftl.doctor.assertEqualsIgnoreNewlineStyle
 import ftl.test.util.TestHelper.normalizeLineEnding
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankGeneralError
 import org.junit.Assert
-import java.nio.file.Paths
 import org.junit.Test
+import java.nio.file.Paths
 
 class JUnitXmlTest {
 
@@ -168,7 +169,7 @@ junit.framework.Assert.fail(Assert.java:50)</failure>
 
         val parsed = parseAllSuitesXml(unknownXml).xmlToString()
 
-        assertThat(parsed).isEqualTo(expected)
+        assertEqualsIgnoreNewlineStyle(parsed, expected)
     }
 
     @Test
@@ -380,7 +381,6 @@ junit.framework.Assert.fail(Assert.java:50)</failure>
 
     @Test
     fun `merge testTimes`() {
-
         /**
          * 1. First run generates local merged JUnit XML
          *    - Firbase XML downloaded from each shard

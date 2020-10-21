@@ -5,31 +5,55 @@ import ftl.android.IncompatibleModelVersion
 import ftl.android.SupportedDeviceConfig
 import ftl.android.UnsupportedModelId
 import ftl.android.UnsupportedVersionId
+import ftl.args.yml.Type
 import ftl.config.containsPhysicalDevices
 import ftl.config.containsVirtualDevices
-import ftl.util.FlankConfigurationError
-import ftl.util.IncompatibleTestDimensionError
+import ftl.run.exception.FlankConfigurationError
+import ftl.run.exception.FlankGeneralError
+import ftl.run.exception.IncompatibleTestDimensionError
 import java.io.File
 
-fun AndroidArgs.validate() {
-    assertAdditionalAppTestApks()
+fun AndroidArgs.validate() = apply {
+    commonArgs.validate()
     assertDevicesSupported()
     assertShards()
     assertTestTypes()
-    assertRoboTest()
     assertDirectoriesToPull()
     assertMaxTestShardsByDeviceType()
     assertParametersConflict()
+    assertTestFiles()
+    assertOtherFiles()
+    assertGrantPermissions()
+    assertType()
+    assertGameLoop()
+    checkResultsDirUnique()
+    checkEnvironmentVariables()
+    checkFilesToDownload()
+    checkNumUniformShards()
 }
 
-private fun AndroidArgs.assertAdditionalAppTestApks() {
-    if (appApk == null) additionalAppTestApks
-        .filter { (app, _) -> app == null }
-        .map { File(it.test).name }
-        .run {
-            if (isNotEmpty())
-                throw FlankConfigurationError("Cannot resolve app apk pair for $this")
-        }
+private fun AndroidArgs.assertGameLoop() {
+    assertLabelContent()
+}
+
+private fun AndroidArgs.assertLabelContent() {
+    if (scenarioLabels.isNotEmpty() && (type == null || type != Type.GAMELOOP))
+        throw FlankConfigurationError("Scenario labels defined but Type is not Game-loop.")
+    if (scenarioNumbers.isNotEmpty() && (type == null || type != Type.GAMELOOP))
+        throw FlankConfigurationError("Scenario numbers defined but Type is not Game-loop.")
+    scenarioNumbers.forEach { it.toIntOrNull() ?: throw FlankConfigurationError("Invalid scenario number provided - $it") }
+}
+
+private fun AndroidArgs.assertType() = type?.let {
+    if (appApk == null) throw FlankGeneralError("A valid AppApk must be defined if Type parameter is used.")
+    if (it == Type.INSTRUMENTATION) {
+        if (testApk == null) throw FlankGeneralError("Instrumentation tests require a valid testApk defined.")
+        if (testRunnerClass == null) throw FlankGeneralError("Instrumentation tests require a valid test-runner-class defined.")
+    }
+}
+
+private fun AndroidArgs.assertGrantPermissions() = grantPermissions?.let {
+    if (it !in listOf("all", "none")) throw FlankGeneralError("Unsupported permission '$grantPermissions'\nOnly 'all' or 'none' supported.")
 }
 
 private fun AndroidArgs.assertDevicesSupported() = devices
@@ -52,16 +76,7 @@ private fun AndroidArgs.assertShards() {
 }
 
 private fun AndroidArgs.assertTestTypes() {
-    if (!(isRoboTest or isInstrumentationTest)) throw FlankConfigurationError(
-        "One of following options must be specified [test, robo-directives, robo-script]."
-    )
-}
-
-private fun AndroidArgs.assertRoboTest() {
-    // Using both roboDirectives and roboScript may hang test execution on FTL
-    if (roboDirectives.isNotEmpty() && roboScript != null) throw FlankConfigurationError(
-        "Options robo-directives and robo-script are mutually exclusive, use only one of them."
-    )
+    if (!(isRoboTest or isInstrumentationTest or isSanityRobo)) throw FlankConfigurationError("Unable to infer test type. Please check configuration")
 }
 
 // Validation is done according to https://cloud.google.com/sdk/gcloud/reference/firebase/test/android/run#--directories-to-pull
@@ -73,8 +88,8 @@ private fun AndroidArgs.assertDirectoriesToPull() {
         ?.also {
             throw FlankConfigurationError(
                 "Invalid value for [directories-to-pull]: Invalid path $it.\n" +
-                        "Path must be absolute paths under /sdcard or /data/local/tmp (for example, --directories-to-pull /sdcard/tempDir1,/data/local/tmp/tempDir2).\n" +
-                        "Path names are restricted to the characters [a-zA-Z0-9_-./+]. "
+                    "Path must be absolute paths under /sdcard or /data/local/tmp (for example, --directories-to-pull /sdcard/tempDir1,/data/local/tmp/tempDir2).\n" +
+                    "Path names are restricted to the characters [a-zA-Z0-9_-./+]. "
             )
         }
 }
@@ -104,4 +119,69 @@ private fun AndroidArgs.throwMaxTestShardsLimitExceeded(): Nothing {
 private fun AndroidArgs.assertParametersConflict() {
     if (useLegacyJUnitResult && fullJUnitResult)
         throw FlankConfigurationError("Parameters conflict, you cannot set: `--legacy-junit-result` and `--full-junit-result` at the same time.")
+}
+
+private fun AndroidArgs.assertTestFiles() {
+    if (isInstrumentationTest) assertInstrumentationTest()
+    if (isRoboTest) assertRoboTest()
+}
+
+private fun AndroidArgs.assertInstrumentationTest() {
+    assertAdditionalAppTestApks()
+    assertApkFilePaths()
+}
+
+private fun AndroidArgs.assertAdditionalAppTestApks() {
+    if (appApk == null) additionalAppTestApks
+        .filter { (app, _) -> app == null }
+        .map { File(it.test).name }
+        .run { if (isNotEmpty()) throw FlankConfigurationError("Cannot resolve app apk pair for $this") }
+}
+
+private fun AndroidArgs.assertApkFilePaths() {
+    appApkPath().forEach { (file, comment) ->
+        ArgsHelper.assertFileExists(file, comment)
+    }
+}
+
+private fun AndroidArgs.appApkPath(): Map<String, String> =
+    mapOf(
+        appApk to "from app",
+        testApk to "from test"
+    ).filterNotNull() + additionalAppTestApks.fold(emptyMap()) { acc, pair ->
+        acc + mapOf(
+            pair.app to "from additional-app-test-apks.app",
+            pair.test to "from additional-app-test-apks.test"
+        ).filterNotNull()
+    }
+
+private fun Map<String?, String>.filterNotNull() = filter { it.key != null }.mapKeys { it.key!! }
+
+private fun AndroidArgs.assertRoboTest() {
+    // Using both roboDirectives and roboScript may hang test execution on FTL
+    if (roboDirectives.isNotEmpty() && roboScript != null) throw FlankConfigurationError(
+        "Options robo-directives and robo-script are mutually exclusive, use only one of them."
+    )
+    if (roboScript != null)
+        ArgsHelper.assertFileExists(roboScript.toString(), "from roboScript")
+    ArgsHelper.assertFileExists(appApk.toString(), "from app")
+}
+
+private fun AndroidArgs.assertOtherFiles() {
+    otherFiles.forEach { (_, path) -> ArgsHelper.assertFileExists(path, "from otherFiles") }
+}
+
+private fun AndroidArgs.checkEnvironmentVariables() {
+    if (environmentVariables.isNotEmpty() && directoriesToPull.isEmpty())
+        println("WARNING: environment-variables set but directories-to-pull is empty, this will result in the coverage file  not downloading to the bucket.")
+}
+
+private fun AndroidArgs.checkFilesToDownload() {
+    if (filesToDownload.isNotEmpty() && directoriesToPull.isEmpty())
+        println("WARNING: files-to-download is set but directories-to-pull is empty, the coverage file may fail to download into the bucket.")
+}
+
+private fun AndroidArgs.checkNumUniformShards() {
+    if ((numUniformShards ?: 0) > 0 && disableSharding)
+        println("WARNING: disable-sharding is enabled with num-uniform-shards = $numUniformShards, Flank will ignore num-uniform-shards and disable sharding.")
 }

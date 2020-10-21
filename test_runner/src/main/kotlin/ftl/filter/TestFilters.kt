@@ -2,8 +2,8 @@ package ftl.filter
 
 import com.linkedin.dex.parser.TestMethod
 import ftl.config.FtlConstants
-import ftl.util.FlankConfigurationError
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankConfigurationError
+import ftl.run.exception.FlankGeneralError
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -154,12 +154,25 @@ object TestFilters {
         }
     )
 
-    private fun withClassName(classNames: List<String>): TestFilter = TestFilter(
-        describe = "withClassName (${classNames.joinToString(", ")})",
-        shouldRun = { testMethod ->
-            withPackageName(classNames).shouldRun(testMethod)
+    private fun withClassName(classNames: List<String>): TestFilter {
+        // splits foo.bar.TestClass1#testMethod1 into [foo.bar.TestClass1, testMethod1]
+        fun String.extractClassAndTestNames() = split("#")
+        val classFilters = classNames.map { it.extractClassAndTestNames() }
+        return TestFilter(
+            describe = "withClassName (${classNames.joinToString(", ")})",
+            shouldRun = { testMethod -> testMethod.testName.extractClassAndTestNames().matchFilters(classFilters) }
+        )
+    }
+
+    private fun List<String>.matchFilters(classFilters: List<List<String>>): Boolean {
+        fun List<String>.className() = first()
+        fun List<String>.methodName() = last()
+        return classFilters.any { filter ->
+            // When filter.size == 1 all test methods from the class should run therefore we do not compare method names
+            // When filter.size != 1 only particular test from the class should be launched and we need to compare method names as well
+            className() == filter.className() && (filter.size == 1 || methodName() == filter.methodName())
         }
-    )
+    }
 
     private fun withAnnotation(annotations: List<String>): TestFilter = TestFilter(
         describe = "withAnnotation (${annotations.joinToString(", ")})",

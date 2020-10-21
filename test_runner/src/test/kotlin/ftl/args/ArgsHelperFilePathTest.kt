@@ -4,13 +4,13 @@ import com.google.common.truth.Truth
 import ftl.config.FtlConstants.isWindows
 import ftl.test.util.FlankTestRunner
 import ftl.test.util.TestHelper.absolutePath
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankGeneralError
 import org.junit.Assume.assumeFalse
-import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.contrib.java.lang.system.EnvironmentVariables
 import org.junit.runner.RunWith
+import java.io.File
 
 @RunWith(FlankTestRunner::class)
 class ArgsHelperFilePathTest {
@@ -68,6 +68,8 @@ class ArgsHelperFilePathTest {
 
     @Test
     fun evaluateRelativeFilePath() {
+        assumeFalse(isWindows)
+
         val expected = makeTmpFile("/tmp/app-debug.apk")
         val testApkPath = "~/../../../../../../../../../tmp/app-debug.apk"
         val actual = ArgsHelper.evaluateFilePath(testApkPath)

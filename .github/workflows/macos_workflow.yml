@@ -18,9 +18,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with: 
+        submodules: true
     - uses: actions/setup-java@v1
       with:
-        java-version: 8
+        java-version: 15
     - uses: actions/cache@v2
       with:
         path: ~/.gradle/caches
@@ -28,14 +30,18 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-2-gradle-
 
-    - name: Gradle check
+    - name: Gradle clean build
       uses: eskatos/gradle-command-action@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        HEAD_REF: ${{ github.head_ref }}
       with:
-        # Path to the Gradle executable
-        gradle-executable: "./test_runner/gradlew"
-        # Gradle command line arguments, see gradle --help
-        arguments: "-p test_runner check"
-        
+        arguments: "clean build"
+
+    - uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "[Auto-commit] Added filese fixed by Detekt" 
+
     - name: Codecov
       uses: codecov/codecov-action@v1.0.7
       with:

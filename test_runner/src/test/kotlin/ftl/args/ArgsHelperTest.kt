@@ -8,27 +8,29 @@ import ftl.args.ArgsHelper.createGcsBucket
 import ftl.args.ArgsHelper.validateTestMethods
 import ftl.args.yml.mergeYmlKeys
 import ftl.config.FtlConstants
-import ftl.config.common.CommonGcloudConfig
-import ftl.config.ios.IosGcloudConfig
+import ftl.gc.GcStorage
+import ftl.gc.GcStorage.exist
 import ftl.shard.TestMethod
 import ftl.shard.TestShard
 import ftl.shard.stringShards
 import ftl.test.util.FlankTestRunner
 import ftl.test.util.TestHelper.absolutePath
 import ftl.test.util.assertThrowsWithMessage
-import ftl.util.FlankGeneralError
-import ftl.util.FlankConfigurationError
-import io.mockk.every
-import io.mockk.spyk
+import ftl.run.exception.FlankGeneralError
+import ftl.run.exception.FlankConfigurationError
+import io.mockk.mockk
 import io.mockk.unmockkAll
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.spyk
 import org.junit.After
 import org.junit.Assume
-import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.contrib.java.lang.system.EnvironmentVariables
 import org.junit.contrib.java.lang.system.SystemErrRule
 import org.junit.runner.RunWith
+import java.io.File
 
 @RunWith(FlankTestRunner::class)
 class ArgsHelperTest {
@@ -45,9 +47,19 @@ class ArgsHelperTest {
 
     @Test
     fun `mergeYmlMaps succeeds`() {
-        val merged = mergeYmlKeys(CommonGcloudConfig, IosGcloudConfig)
+        val merged = mergeYmlKeys(
+            mockk() {
+                every { keys } returns listOf("devices", "test", "apk")
+                every { group } returns "gcloud"
+            },
+            mockk() {
+                every { keys } returns listOf("xcode-version", "async", "client-details")
+                every { group } returns "gcloud"
+            }
+        )
+
         assertThat(merged.keys.size).isEqualTo(1)
-        assertThat(merged["gcloud"]?.size).isEqualTo(11)
+        assertThat(merged["gcloud"]?.size).isEqualTo(6)
     }
 
     @Test
@@ -193,7 +205,10 @@ class ArgsHelperTest {
 
         val args = spyk(AndroidArgs.default())
         every { args.maxTestShards } returns maxTestShards
-        assertThrowsWithMessage(Throwable::class, "max-test-shards must be >= ${IArgs.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.first} and <= ${IArgs.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.last}. But current is $maxTestShards") {
+        assertThrowsWithMessage(
+            Throwable::class,
+            "max-test-shards must be >= ${IArgs.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.first} and <= ${IArgs.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE.last}. But current is $maxTestShards"
+        ) {
             assertCommonProps(args)
         }
     }
@@ -213,6 +228,24 @@ class ArgsHelperTest {
         every { args.repeatTests } returns 0
         assertThrowsWithMessage(Throwable::class, "num-test-runs must be >= 1") {
             assertCommonProps(args)
+        }
+    }
+
+    @Test
+    fun `should throw an error if apk file does not exists on gcs`() {
+        mockkObject(GcStorage) {
+            every { exist("gs://any-bucket/any-file.apk") } returns false
+            assertThrowsWithMessage(FlankGeneralError::class, "'gs://any-bucket/any-file.apk' from apk doesn't exist") {
+                assertFileExists("gs://any-bucket/any-file.apk", "from apk")
+            }
+        }
+    }
+
+    @Test
+    fun `should not throw and error if apk file exist on gcs`() {
+        mockkObject(GcStorage) {
+            every { exist("gs://any-bucket/any-file.apk") } returns true
+            assertFileExists("gs://any-bucket/any-file.apk", "from apk")
         }
     }
 }

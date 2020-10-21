@@ -5,9 +5,15 @@ import com.google.common.annotations.VisibleForTesting
 import ftl.args.AndroidArgsCompanion
 import ftl.args.ArgsHelper
 import ftl.args.IArgs
+import ftl.args.yml.DEVICES_NODE
+import ftl.args.yml.GCLOUD_NODE
+import ftl.args.yml.MODEL_NODE
+import ftl.args.yml.VERSION_NODE
+import ftl.args.yml.devicesNode
+import ftl.args.yml.notValidDevices
 import ftl.config.loadAndroidConfig
 import ftl.config.loadIosConfig
-import ftl.util.FlankConfigurationError
+import ftl.run.exception.FlankConfigurationError
 import ftl.util.loadFile
 import java.io.Reader
 import java.lang.StringBuilder
@@ -20,9 +26,9 @@ fun validateYaml(args: IArgs.ICompanion, data: Path) =
 @VisibleForTesting
 internal fun validateYaml(args: IArgs.ICompanion, data: Reader) =
     runCatching { ArgsHelper.yamlMapper.readTree(data) }
-        .onFailure { return it.message ?: "Unknown error when parsing tree" }
+        .onFailure { return it.message?.replace(System.lineSeparator(), "\n") ?: "Unknown error when parsing tree" }
         .getOrNull()
-        ?.run { validateYamlKeys(args) }
+        ?.run { validateYamlKeys(args).plus(validateDevices()) }
         .orEmpty()
 
 private fun JsonNode.validateYamlKeys(args: IArgs.ICompanion) = StringBuilder().apply {
@@ -61,3 +67,12 @@ private fun preloadConfiguration(data: Path, isAndroid: Boolean) =
     } catch (e: FlankConfigurationError) {
         e.message
     }
+
+private fun JsonNode.validateDevices() = StringBuilder().apply {
+    devicesNode?.notValidDevices?.withVersionNode?.forEach { device ->
+        appendLine("Warning: Version should be string $GCLOUD_NODE -> $DEVICES_NODE[${device[MODEL_NODE]}] -> $VERSION_NODE[${device[VERSION_NODE]}]")
+    }
+}.toString()
+
+private val List<JsonNode>.withVersionNode
+    get() = this.filter { it.has(VERSION_NODE) }

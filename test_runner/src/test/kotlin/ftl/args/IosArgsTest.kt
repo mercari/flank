@@ -7,19 +7,24 @@ import ftl.config.FtlConstants
 import ftl.config.FtlConstants.defaultIosModel
 import ftl.config.FtlConstants.defaultIosVersion
 import ftl.config.defaultIosConfig
+import ftl.gc.GcStorage
+import ftl.run.exception.FlankConfigurationError
 import ftl.run.status.OutputStyle
 import ftl.test.util.FlankTestRunner
 import ftl.test.util.TestHelper.absolutePath
 import ftl.test.util.TestHelper.assert
 import ftl.test.util.TestHelper.getPath
 import ftl.test.util.assertThrowsWithMessage
-import ftl.util.FlankConfigurationError
+import io.mockk.every
+import io.mockk.mockkObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assume
 import org.junit.Rule
 import org.junit.Test
 import org.junit.contrib.java.lang.system.SystemErrRule
+import org.junit.contrib.java.lang.system.SystemOutRule
 import org.junit.runner.RunWith
 import picocli.CommandLine
 import java.io.StringReader
@@ -30,6 +35,8 @@ class IosArgsTest {
     private val empty = emptyList<String>()
     private val simpleFlankPath = getPath("src/test/kotlin/ftl/fixtures/simple-ios-flank.yml")
     private val testPath = "./src/test/kotlin/ftl/fixtures/tmp/earlgrey_example.zip"
+    private val nonExistingTestPath = "./src/test/kotlin/ftl/fixtures/tmp/earlgrey_example_non_existing.zip"
+    private val nonExistingxctestrunFile = "./src/test/kotlin/ftl/fixtures/tmp/EarlGreyExampleSwiftTests_iphoneos13.4-arm64e_non_exis.xctestrun"
     private val xctestrunFile =
         "./src/test/kotlin/ftl/fixtures/tmp/EarlGreyExampleSwiftTests_iphoneos13.4-arm64e.xctestrun"
     private val invalidApp = "../test_projects/android/apks/invalid.apk"
@@ -68,6 +75,8 @@ class IosArgsTest {
           max-test-shards: 7
           shard-time: 60
           num-test-runs: 8
+          default-test-time: 15.0
+          use-average-test-time-for-new-tests: true
           files-to-download:
             - /sdcard/screenshots
           test-targets-always-run:
@@ -82,11 +91,16 @@ class IosArgsTest {
           ignore-failed-tests: true
           keep-file-path: true
           output-style: single
+          disable-results-upload: true
+          default-class-test-time: 30.0
         """
+
+    @get:Rule
+    val systemErrRule = SystemErrRule().muteForSuccessfulTests()
 
     @Rule
     @JvmField
-    val systemErrRule = SystemErrRule().muteForSuccessfulTests()!!
+    val systemOutRule: SystemOutRule = SystemOutRule().enableLog()
 
     @Test
     fun `empty testTargets`() {
@@ -185,7 +199,8 @@ flank:
     fun `args toString`() {
         val args = IosArgs.load(iosNonDefault)
         assert(
-            args.toString(), """
+            args.toString(),
+            """
 IosArgs
     gcloud:
       results-bucket: mockBucket
@@ -219,6 +234,8 @@ IosArgs
       num-test-runs: 8
       smart-flank-gcs-path:${' '}
       smart-flank-disable-upload: false
+      default-test-time: 15.0
+      use-average-test-time-for-new-tests: true
       test-targets-always-run:
         - a/testGrantPermissions
         - a/testGrantPermissions2
@@ -236,6 +253,8 @@ IosArgs
       run-timeout: 15m
       ignore-failed-tests: true
       output-style: single
+      disable-results-upload: true
+      default-class-test-time: 30.0
 """.trimIndent()
         )
     }
@@ -272,6 +291,8 @@ IosArgs
       num-test-runs: 1
       smart-flank-gcs-path: 
       smart-flank-disable-upload: false
+      default-test-time: 120.0
+      use-average-test-time-for-new-tests: false
       test-targets-always-run:
       files-to-download:
       keep-file-path: false
@@ -284,7 +305,10 @@ IosArgs
       run-timeout: -1
       ignore-failed-tests: false
       output-style: multi
-        """.trimIndent(), args.toString()
+      disable-results-upload: false
+      default-class-test-time: 240.0
+        """.trimIndent(),
+            args.toString()
         )
     }
 
@@ -924,7 +948,18 @@ IosArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        IosArgs.load(yaml)
+        IosArgs.load(yaml).validate()
+    }
+
+    fun `verify no error message when test and xctestrun not set for refresh command`() {
+        val yaml = """
+        gcloud:
+          test: $nonExistingTestPath
+          xctestrun-file: $nonExistingTestPath
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        IosArgs.load(yaml).validateRefresh()
     }
 
     @Test(expected = FlankConfigurationError::class)
@@ -935,7 +970,7 @@ IosArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        IosArgs.load(yaml)
+        IosArgs.load(yaml).validate()
     }
 
     @Test(expected = FlankConfigurationError::class)
@@ -946,7 +981,7 @@ IosArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        IosArgs.load(yaml)
+        IosArgs.load(yaml).validate()
     }
 
     @Test
@@ -958,7 +993,116 @@ IosArgs
         flank:
           max-test-shards: -1
         """.trimIndent()
-        IosArgs.load(yaml)
+        IosArgs.load(yaml).validate()
+    }
+
+    @Test
+    fun `verify no error message when test and xctestrun-file not set and validation is for refresh command`() {
+        val yaml = """
+        gcloud:
+          test: $nonExistingTestPath
+          xctestrun-file: $nonExistingxctestrunFile
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        IosArgs.load(yaml).validateRefresh()
+    }
+
+    @Test
+    fun `should set defaultTestTime`() {
+        val yaml = """
+        gcloud:
+          test: $testPath
+          xctestrun-file: $testPath
+        flank:
+          max-test-shards: -1
+          default-test-time: 15
+        """.trimIndent()
+        val args = IosArgs.load(yaml)
+        assertEquals(args.defaultTestTime, 15.0, 0.01)
+    }
+
+    @Test
+    fun `should set defaultTestTime to default value if not specified`() {
+        val yaml = """
+        gcloud:
+          test: $testPath
+          xctestrun-file: $testPath
+        flank:
+          max-test-shards: -1
+          use-average-test-time-for-new-tests: true
+        """.trimIndent()
+        val args = IosArgs.load(yaml)
+        assertEquals(args.defaultTestTime, 120.0, 0.01)
+    }
+
+    @Test
+    fun `should useAverageTestTimeForNewTests set to true`() {
+        val yaml = """
+        gcloud:
+          test: $testPath
+          xctestrun-file: $testPath
+        flank:
+          max-test-shards: -1
+          use-average-test-time-for-new-tests: true
+        """.trimIndent()
+        val args = IosArgs.load(yaml)
+        assertTrue(args.useAverageTestTimeForNewTests)
+    }
+
+    @Test
+    fun `should useAverageTestTimeForNewTests set to false by defaul`() {
+        val yaml = """
+        gcloud:
+          test: $testPath
+          xctestrun-file: $testPath
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        val args = IosArgs.load(yaml)
+        assertFalse(args.useAverageTestTimeForNewTests)
+    }
+
+    @Test
+    fun `should show warning message when results directory exist`() {
+        val yaml = """
+        gcloud:
+          test: $testPath
+          xctestrun-file: $testPath
+          results-dir: test
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        mockkObject(GcStorage) {
+            every { GcStorage.exist(any(), any()) } returns true
+
+            // when
+            IosArgs.load(yaml).validate()
+
+            // then
+            assertTrue(systemOutRule.log.contains("WARNING: Google cloud storage result directory should be unique, otherwise results from multiple test matrices will be overwritten or intermingled"))
+        }
+    }
+
+    @Test
+    fun `should not print result-dir warning when same directory does not exist`() {
+        val yaml = """
+        gcloud:
+          test: $testPath
+          xctestrun-file: $testPath
+          results-dir: test
+        flank:
+          max-test-shards: -1
+        """.trimIndent()
+        mockkObject(GcStorage) {
+            every { GcStorage.exist(any(), any()) } returns false
+
+            // when
+            IosArgs.load(yaml).validate()
+
+            // then
+            assertFalse(systemOutRule.log.contains("WARNING: Google cloud storage result directory should be unique, otherwise results from multiple test matrices will be overwritten or intermingled"))
+        }
     }
 }
 

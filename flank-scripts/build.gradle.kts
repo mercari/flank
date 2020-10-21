@@ -2,10 +2,10 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
     application
-    kotlin(Kotlin.PLUGIN_JVM) version Versions.KOTLIN_VERSION
-    kotlin(Kotlin.PLUGIN_SERIALIZATION) version Versions.KOTLIN_VERSION
-    id(PLUGIN_SHADOW_JAR) version Versions.SHADOW_JAR
-    id(DETEKT_PLUGIN) version Versions.DETEKT
+    kotlin(Plugins.Kotlin.PLUGIN_JVM)
+    kotlin(Plugins.Kotlin.PLUGIN_SERIALIZATION) version Versions.KOTLIN
+    id(Plugins.PLUGIN_SHADOW_JAR) version Versions.SHADOW
+    id(Plugins.DETEKT_PLUGIN)
 }
 
 val artifactID = "flankScripts"
@@ -27,7 +27,17 @@ group = "flank.scripts"
 
 application {
     mainClassName = "flank.scripts.MainKt"
+    applicationDefaultJvmArgs = listOf(
+        "-Xmx2048m",
+        "-Xms512m"
+    )
 }
+
+tasks.test {
+    maxHeapSize = "2048m"
+    minHeapSize = "512m"
+}
+
 
 repositories {
     jcenter()
@@ -38,6 +48,9 @@ repositories {
 detekt {
     input = files("src/main/kotlin", "src/test/kotlin")
     config = files("../config/detekt.yml")
+    parallel = true
+    autoCorrect = true
+
     reports {
         xml {
             enabled = false
@@ -51,17 +64,30 @@ detekt {
 tasks["check"].dependsOn(tasks["detekt"])
 
 dependencies {
-    implementation(kotlin("stdlib"))
-    implementation(Kotlin.KOTLIN_SERIALIZATION)
-    implementation(Fuel.CORE)
-    implementation(Fuel.KOTLINX_SERIALIZATION)
-    implementation(Fuel.COROUTINES)
-    implementation(CLIKT)
+    implementation(kotlin("stdlib", org.jetbrains.kotlin.config.KotlinCompilerVersion.VERSION)) // or "stdlib-jdk8"
+    implementation(Dependencies.KOTLIN_SERIALIZATION)
+    implementation(Dependencies.Fuel.CORE)
+    implementation(Dependencies.Fuel.KOTLINX_SERIALIZATION)
+    implementation(Dependencies.Fuel.COROUTINES)
+    implementation(Dependencies.CLIKT)
+    implementation(Dependencies.JSOUP)
+    implementation(Dependencies.JCABI_GITHUB)
+    implementation(Dependencies.SLF4J_NOP)
+    implementation(Dependencies.GLASSFISH_JSON)
 
-    detektPlugins(DETEKT_FORMATTING)
+    detektPlugins(Dependencies.DETEKT_FORMATTING)
 
-    testImplementation(JUNIT)
-    testImplementation(MOCKK)
-    testImplementation(TRUTH)
-    testImplementation(SYSTEM_RULES)
+    testImplementation(Dependencies.JUNIT)
+    testImplementation(Dependencies.MOCKK)
+    testImplementation(Dependencies.TRUTH)
+    testImplementation(Dependencies.SYSTEM_RULES)
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> { kotlinOptions.jvmTarget = "1.8" }
+
+val prepareJar by tasks.registering(Copy::class) {
+    dependsOn("shadowJar")
+    from("$buildDir/libs")
+    include("flankScripts.jar")
+    into("$projectDir/bash")
 }

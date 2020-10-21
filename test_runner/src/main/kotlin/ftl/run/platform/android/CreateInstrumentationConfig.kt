@@ -2,6 +2,7 @@ package ftl.run.platform.android
 
 import ftl.args.AndroidArgs
 import ftl.run.model.InstrumentationTestContext
+import ftl.shard.testCases
 
 internal fun AndroidArgs.createInstrumentationConfig(
     testApk: InstrumentationTestContext
@@ -12,6 +13,7 @@ internal fun AndroidArgs.createInstrumentationConfig(
     orchestratorOption = "USE_ORCHESTRATOR".takeIf { useOrchestrator },
     disableSharding = disableSharding,
     numUniformShards = numUniformShards,
-    testShards = testApk.shards,
-    keepTestTargetsEmpty = disableSharding && testTargets.isEmpty()
+    testShards = testApk.shards.testCases,
+    keepTestTargetsEmpty = disableSharding && testTargets.isEmpty(),
+    environmentVariables = testApk.environmentVariables
 )

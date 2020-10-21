@@ -25,16 +25,15 @@ class IgnoreTestsAnnotationTest {
             AndroidArgs.load(singleSuccessYaml).createAndroidTestContexts()
         }.single() as InstrumentationTestContext
 
-        Assert.assertFalse(testContext.shards.flatten().any { it.contains("#ignoredTestWithIgnore") })
+        Assert.assertFalse(testContext.shards.flatMap { it.testMethodNames }.any { it.contains("#ignoredTestWithIgnore") })
     }
 
     @Test
     fun `InstrumentationContext with @Supress annotation shouldn't have ignoredTestCases in shards`() {
-
         val testContext = runBlocking {
             AndroidArgs.load(singleSuccessYaml).createAndroidTestContexts()
         }.single() as InstrumentationTestContext
 
-        Assert.assertFalse(testContext.shards.flatten().any { it.contains("#ignoredTestWithSuppress") })
+        Assert.assertFalse(testContext.shards.flatMap { it.testMethodNames }.any { it.contains("#ignoredTestWithSuppress") })
     }
 }

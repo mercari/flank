@@ -1,37 +1,47 @@
 name: RELEASE
 
-# Run when push on master or create tag with version [v*]
+# Run when push on master or create tag with version [v*] for only changes to the test_runner/**
 on:
   push:
+    paths:
+      - 'test_runner/**'
+      - 'firebase_api/test_api/**'
     branches:
       - 'master'
     tags: v*
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v2
+      with: 
+        submodules: true
+
+    - name: Get all git tags
+      run: |
+        git fetch --prune --unshallow --tags -f
+        git tag
 
     - name: Gradle Build flankScripts and add it to PATH
       run: |
         ./flank-scripts/bash/buildFlankScripts.sh
-        echo "::add-path::./flank-scripts/bash"
+        echo "./flank-scripts/bash" >> $GITHUB_PATH
 
     - name: Set env variables
       run: |
-        git_short_hash=$(git rev-parse --short "$GITHUB_SHA")
-        echo "::set-env name=GIT_SHORT_HASH::$(echo $git_short_hash)";
-        echo "::set-env name=MVN_REVISION::$(echo $GITHUB_SHA)";
+        echo "MVN_REVISION=$(echo $GITHUB_SHA)" >> $GITHUB_ENV
 
           if [[ $GITHUB_REF == refs/tags/* ]]
-            then 
-              echo "::set-env name=MVN_VERSION::$(echo ${GITHUB_REF:11})";
-              echo "::set-env name=RELEASE_TAG::$(echo ${GITHUB_REF:10})";
-            else 
-              echo "::set-env name=RELEASE_TAG::flank_snapshot";
-              echo "::set-env name=MVN_VERSION::flank_snapshot"; 
+            then
+              echo "MVN_VERSION=$(echo ${GITHUB_REF:11})" >> $GITHUB_ENV
+              echo "RELEASE_TAG=$(echo ${GITHUB_REF:10})" >> $GITHUB_ENV
+            else
+              echo "RELEASE_TAG=flank_snapshot" >> $GITHUB_ENV
+              echo "MVN_VERSION=flank_snapshot" >> $GITHUB_ENV
+              git_short_hash=$(git rev-parse --short "$GITHUB_SHA")
+              echo "GIT_SHORT_HASH=$(echo $git_short_hash)" >> $GITHUB_ENV
           fi;
 
     - name: Store version variables to file
@@ -52,16 +62,17 @@ jobs:
 
     - name: Gradle Build Flank
       uses: eskatos/gradle-command-action@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        HEAD_REF: ${{ github.head_ref }}
       with:
-        gradle-executable: "./test_runner/gradlew"
-        arguments: "-p test_runner clean build shadowJar"
+        arguments: "clean test_runner:build test_runner:shadowJar"
         
     - name: Gradle Upload to bintray
       uses: eskatos/gradle-command-action@v1
       with:
-        gradle-executable: "./test_runner/gradlew"
-        arguments: "-p test_runner bintrayUpload -PJFROG_API_KEY=${{ secrets.JFROG_API_KEY }} -PJFROG_USER=${{ secrets.JFROG_USER }}"  
-      
+        arguments: "test_runner:bintrayUpload -PJFROG_API_KEY=${{ secrets.JFROG_API_KEY }} -PJFROG_USER=${{ secrets.JFROG_USER }}"
+
     - name: Authenticate to hub
       run: |
             mkdir -p ~/.config/
@@ -88,7 +99,22 @@ jobs:
 
     - name: Release stable
       if: startsWith(github.ref, 'refs/tags/v')
-      run: flankScripts release releaseFlank --input-file=./test_runner/build/libs/flank.jar --git-tag=$RELEASE_TAG --commit-hash=$GIT_SHORT_HASH 
+      run: flankScripts release releaseFlank --input-file=./test_runner/build/libs/flank.jar --git-tag=$RELEASE_TAG --token=${{ secrets.GITHUB_TOKEN }}
 
     - name: Sync bintray to maven central
       run: flankScripts release jFrogSync --maven-tag=$MVN_VERSION
+
+    - name: Gradle Upload to GitHub packages
+      uses: eskatos/gradle-command-action@v1
+      if: startsWith(github.ref, 'refs/tags/v')
+      with:
+        arguments: "test_runner:publish -PGITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+
+    - name: Post Message of Flank Release
+      uses: Flank/flank@V1.3-action
+      if: startsWith(github.ref, 'refs/tags/v')
+      with:
+          xoxctoken: ${{ secrets.SLACK_XOXCTOKEN }}
+          message: Flank ${{ env.RELEASE_TAG }} has been released. View more information <http://github.com/Flank/flank/releases/tag/${{ env.RELEASE_TAG }}| here!>
+          channel: ${{ secrets.SLACK_CHANNEL}}
+          cookie: ${{ secrets.SLACK_COOKIE}}
