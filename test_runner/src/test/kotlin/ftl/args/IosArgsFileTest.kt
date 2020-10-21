@@ -7,7 +7,7 @@ import ftl.run.status.OutputStyle
 import ftl.test.util.FlankTestRunner
 import ftl.test.util.TestHelper.assert
 import ftl.test.util.TestHelper.getPath
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankGeneralError
 import org.junit.Assert.assertEquals
 import org.junit.Assume
 import org.junit.Rule
@@ -19,13 +19,11 @@ import org.junit.runner.RunWith
 @RunWith(FlankTestRunner::class)
 class IosArgsFileTest {
 
-    @Rule
-    @JvmField
-    val systemErrRule = SystemErrRule().muteForSuccessfulTests()!!
+    @get:Rule
+    val systemErrRule = SystemErrRule().muteForSuccessfulTests()
 
-    @Rule
-    @JvmField
-    val systemOutRule = SystemOutRule().muteForSuccessfulTests()!!
+    @get:Rule
+    val systemOutRule = SystemOutRule().muteForSuccessfulTests()
 
     private val ymlNotFound = getPath("not_found.yml")
     private val yamlFile = getPath("src/test/kotlin/ftl/fixtures/flank.ios.yml")
@@ -49,7 +47,8 @@ class IosArgsFileTest {
             assert(async, true)
             assert(testTargets, listOf(testName))
             assert(
-                devices, listOf(
+                devices,
+                listOf(
                     Device("iphone8", "11.2", "en_US", "portrait")
                 )
             )
@@ -92,8 +91,8 @@ class IosArgsFileTest {
         val testShardChunks = config.testShardChunks
 
         assertThat(testShardChunks.size).isEqualTo(2)
-        assertThat(testShardChunks[0]).isEqualTo(chunk0)
-        assertThat(testShardChunks[1]).isEqualTo(chunk1)
+        assertThat(testShardChunks[0].testMethodNames).isEqualTo(chunk0)
+        assertThat(testShardChunks[1].testMethodNames).isEqualTo(chunk1)
     }
 
     @Test

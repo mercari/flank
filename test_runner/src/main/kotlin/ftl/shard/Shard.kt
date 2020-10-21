@@ -3,7 +3,7 @@ package ftl.shard
 import ftl.args.IArgs
 import ftl.args.IosArgs
 import ftl.reports.xml.model.JUnitTestResult
-import ftl.util.FlankConfigurationError
+import ftl.run.exception.FlankConfigurationError
 import ftl.util.FlankTestMethod
 import kotlin.math.roundToInt
 
@@ -11,6 +11,7 @@ data class TestShard(
     var time: Double,
     val testMethods: MutableList<TestMethod>
 )
+
 /** List of shards containing test names as a string. */
 typealias StringShards = List<MutableList<String>>
 
@@ -45,7 +46,7 @@ fun createShardsByShardCount(
     val maxShards = maxShards(args.maxTestShards, forcedShardCount)
 
     val previousMethodDurations = createTestMethodDurationMap(oldTestResult, args)
-    val testCases = createTestCases(testsToRun, previousMethodDurations)
+    val testCases = createTestCases(testsToRun, previousMethodDurations, args)
         .sortedByDescending(TestMethod::time) // We want to iterate over testcase going from slowest to fastest
 
     val testCount = getNumberOfNotIgnoredTestCases(testCases)

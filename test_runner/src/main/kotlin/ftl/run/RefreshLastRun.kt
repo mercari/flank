@@ -5,6 +5,7 @@ import ftl.args.IArgs
 import ftl.config.FtlConstants
 import ftl.gc.GcTestMatrix
 import ftl.json.MatrixMap
+import ftl.json.updateMatrixMap
 import ftl.reports.util.ReportManager
 import ftl.run.common.fetchArtifacts
 import ftl.run.common.getLastArgs
@@ -12,7 +13,9 @@ import ftl.run.common.getLastMatrices
 import ftl.run.common.pollMatrices
 import ftl.run.common.updateMatrixFile
 import ftl.args.ShardChunks
-import ftl.json.update
+import ftl.json.needsUpdate
+import ftl.json.updateWithMatrix
+import ftl.json.validate
 import ftl.util.MatrixState
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -26,11 +29,13 @@ suspend fun refreshLastRun(currentArgs: IArgs, testShardChunks: ShardChunks) {
     val lastArgs = getLastArgs(currentArgs)
 
     refreshMatrices(matrixMap, lastArgs)
-    pollMatrices(matrixMap.map.keys, lastArgs).update(matrixMap)
+    pollMatrices(matrixMap.map.keys, lastArgs).updateMatrixMap(matrixMap)
     fetchArtifacts(matrixMap, lastArgs)
 
     // Must generate reports *after* fetching xml artifacts since reports require xml
     ReportManager.generate(matrixMap, lastArgs, testShardChunks)
+
+    matrixMap.validate(lastArgs.ignoreFailedTests)
 }
 
 /** Refresh all in progress matrices in parallel **/
@@ -58,7 +63,12 @@ private suspend fun refreshMatrices(matrixMap: MatrixMap, args: IArgs) = corouti
 
         println(FtlConstants.indent + "${matrix.state} $matrixId")
 
-        if (map[matrixId]?.update(matrix) == true) dirty = true
+        if (map[matrixId]?.needsUpdate(matrix) == true) {
+            map[matrixId]?.updateWithMatrix(matrix)?.let {
+                matrixMap.update(matrixId, it)
+                dirty = true
+            }
+        }
     }
 
     if (dirty) {

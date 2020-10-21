@@ -4,5 +4,8 @@ build/
 out/
 .DS_Store
 .gradle/
+test_artifacts
 test_runner/flank/
 local.properties
+/report.json
+results

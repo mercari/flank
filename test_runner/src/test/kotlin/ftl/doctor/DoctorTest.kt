@@ -5,6 +5,8 @@ import ftl.args.AndroidArgs
 import ftl.args.IArgs
 import ftl.args.IosArgs
 import ftl.test.util.FlankTestRunner
+import org.junit.Assert
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.StringReader
@@ -15,13 +17,20 @@ class DoctorTest {
     @Test
     fun androidDoctorTest() {
         val lint = validateYaml(AndroidArgs, Paths.get("src/test/kotlin/ftl/fixtures/flank.local.yml"))
-        assertThat(lint).isEmpty()
+        val expected = """
+                Warning: Version should be string gcloud -> device["NexusLowRes"] -> version[23]
+                Warning: Version should be string gcloud -> device["NexusLowRes"] -> version[23]
+                Warning: Version should be string gcloud -> device["shamu"] -> version[22]
+                
+        """.trimIndent()
+        assertEquals(expected, lint)
     }
 
     @Test
     fun androidDoctorTest2() {
         val lint = validateYaml(
-            AndroidArgs, """
+            AndroidArgs,
+            """
 hi: .
 foo:
   bar: 1
@@ -72,7 +81,8 @@ Unknown keys in flank -> [three]
     @Test
     fun androidDoctorTest3() {
         val lint = validateYaml(
-            AndroidArgs, """
+            AndroidArgs,
+            """
 gcloud:
   app: .
   test: .
@@ -87,6 +97,7 @@ flank:
     fun androidDoctorTestWithFailedConfiguration() {
         // given
         val expectedErrorMessage = """
+Warning: Version should be string gcloud -> device["Nexus5"] -> version[23]
 Error on parse config: flank->additional-app-test-apks
 At line: 20, column: 5
 Error node: {
@@ -102,7 +113,7 @@ Error node: {
             AndroidArgs,
             Paths.get("src/test/kotlin/ftl/fixtures/flank_android_failed_configuration.yml")
         )
-        assertThat(actual).isEqualTo(expectedErrorMessage)
+        assertEqualsIgnoreNewlineStyle(expectedErrorMessage, actual)
     }
 
     @Test
@@ -125,19 +136,24 @@ Error node: {
             AndroidArgs,
             Paths.get("src/test/kotlin/ftl/fixtures/flank_android_failed_tree.yml")
         )
-        assertThat(actual).isEqualTo(expectedErrorMessage)
+        assertEqualsIgnoreNewlineStyle(expectedErrorMessage, actual)
     }
 
     @Test
     fun iosDoctorTest() {
         val lint = validateYaml(IosArgs, Paths.get("src/test/kotlin/ftl/fixtures/flank.ios.yml"))
-        assertThat(lint).isEmpty()
+        val expected = """
+            Warning: Version should be string gcloud -> device["iphone8"] -> version[11.2]
+            
+        """.trimIndent()
+        assertEquals(expected, lint)
     }
 
     @Test
     fun iosDoctorTest2() {
         val lint = validateYaml(
-            IosArgs, """
+            IosArgs,
+            """
 hi: .
 foo:
   bar: 1
@@ -181,7 +197,8 @@ Unknown keys in flank -> [three]
     @Test
     fun iosDoctorTest3() {
         val lint = validateYaml(
-            IosArgs, """
+            IosArgs,
+            """
 gcloud:
   test: .
   xctestrun-file: .
@@ -191,6 +208,52 @@ flank:
         )
         assertThat(lint).isEqualTo("")
     }
+
+    @Test
+    fun `validate result should contains warning about device version if is not compatible with gcloud cli`() {
+        val lint = validateYaml(
+            IosArgs,
+            """
+gcloud:
+  test: .
+  xctestrun-file: .
+  device:
+    - model: NexusLowRes
+      version: 23
+flank:
+  project: .
+""".trimIndent()
+        )
+        assertEquals("Warning: Version should be string gcloud -> device[\"NexusLowRes\"] -> version[23]", lint.trim())
+    }
+
+    @Test
+    fun `should return empty validation message if device version is compatible with gcloud cli`() {
+        val lint = validateYaml(
+            IosArgs,
+            """
+gcloud:
+  test: .
+  xctestrun-file: .
+  device:
+    - model: NexusLowRes
+      version: "23"
+flank:
+  project: .
+""".trimIndent()
+        )
+        assertEquals("", lint)
+    }
 }
 
 private fun validateYaml(args: IArgs.ICompanion, data: String): String = validateYaml(args, StringReader(data))
+
+fun assertEqualsIgnoreNewlineStyle(s1: String?, s2: String?) {
+    Assert.assertNotNull(s1)
+    Assert.assertNotNull(s2)
+    return Assert.assertEquals(normalizeLineEnds(s1!!), normalizeLineEnds(s2!!))
+}
+
+private fun normalizeLineEnds(s: String): String {
+    return s.replace("\r\n", "\n").replace('\r', '\n')
+}

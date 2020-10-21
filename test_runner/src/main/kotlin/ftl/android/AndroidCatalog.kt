@@ -27,7 +27,11 @@ object AndroidCatalog {
             .androidDeviceCatalog
     }
 
-    fun devicesCatalogAsTable(projectId: String) = deviceCatalog(projectId).models.asPrintableTable()
+    fun devicesCatalogAsTable(projectId: String) = getModels(projectId).asPrintableTable()
+
+    fun describeModel(projectId: String, modelId: String) = getModels(projectId).getDescription(modelId)
+
+    private fun getModels(projectId: String) = deviceCatalog(projectId).models
 
     fun supportedVersionsAsTable(projectId: String) = getVersionsList(projectId).asPrintableTable()
 
@@ -50,7 +54,6 @@ object AndroidCatalog {
         versionMap.getOrPut(projectId) { deviceCatalog(projectId).versions.map { it.id } }
 
     fun supportedDeviceConfig(modelId: String, versionId: String, projectId: String): DeviceConfigCheck {
-
         val foundModel = deviceCatalog(projectId).models.find { it.id == modelId } ?: return UnsupportedModelId
         if (!androidVersionIds(projectId).contains(versionId)) return UnsupportedVersionId
 
@@ -61,12 +64,24 @@ object AndroidCatalog {
         return SupportedDeviceConfig
     }
 
-    fun isVirtualDevice(device: AndroidDevice?, projectId: String): Boolean = device?.androidModelId?.let { isVirtualDevice(it, projectId) } ?: false
+    fun isVirtualDevice(device: AndroidDevice?, projectId: String): Boolean = device
+        ?.androidModelId
+        ?.let { isVirtualDevice(it, projectId) }
+        ?: false
 
     fun isVirtualDevice(modelId: String, projectId: String): Boolean {
-        val form = deviceCatalog(projectId).models.find { it.id == modelId }?.form ?: "PHYSICAL"
-        return form == "VIRTUAL"
+        val form = deviceCatalog(projectId).models
+            .find { it.id.equals(modelId, ignoreCase = true) }?.form
+            ?: DeviceType.PHYSICAL.name.also {
+                println("Unable to find device type for $modelId. PHYSICAL used as fallback in cost calculations")
+            }
+
+        return form.equals(DeviceType.VIRTUAL.name, ignoreCase = true)
     }
+}
+
+enum class DeviceType {
+    VIRTUAL, PHYSICAL
 }
 
 sealed class DeviceConfigCheck

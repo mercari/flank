@@ -5,7 +5,7 @@ import ftl.config.FtlConstants
 import ftl.gc.GcStorage
 import ftl.gc.GcTesting
 import ftl.gc.GcToolResults
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankGeneralError
 import ftl.util.StopWatch
 import java.io.File
 
@@ -37,9 +37,11 @@ private fun assertMockUrl() {
 }
 
 private fun deleteMockResultDirOnShutDown(args: IArgs, runGcsPath: String) {
-    Runtime.getRuntime().addShutdownHook(Thread {
-        File(args.localResultDir, runGcsPath).deleteRecursively()
-    })
+    Runtime.getRuntime().addShutdownHook(
+        Thread {
+            File(args.localResultDir, runGcsPath).deleteRecursively()
+        }
+    )
 }
 
 private fun deleteLocalResultDir(args: IArgs) {

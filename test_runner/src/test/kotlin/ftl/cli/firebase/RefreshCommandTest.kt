@@ -2,15 +2,15 @@ package ftl.cli.firebase
 
 import com.google.common.truth.Truth.assertThat
 import ftl.test.util.FlankTestRunner
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.Paths
+import ftl.test.util.TestHelper.normalizeLineEnding
 import org.junit.Rule
 import org.junit.Test
 import org.junit.contrib.java.lang.system.SystemOutRule
 import org.junit.runner.RunWith
 import picocli.CommandLine
-import ftl.test.util.TestHelper.normalizeLineEnding
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
 
 @RunWith(FlankTestRunner::class)
 class RefreshCommandTest {
@@ -20,19 +20,22 @@ class RefreshCommandTest {
 
     /** Create one result dir with matrix_ids.json for refresh command tests */
     private fun setupResultsDir() {
-        val parent = "results/2018-09-07_01:21:14.201000_SUfE"
+        val parent = "results/2018-09-07_01-21-14.201000_SUfE"
         val matrixIds = Paths.get(parent, "matrix_ids.json")
         val yamlCfg = Paths.get(parent, "flank.yml")
         matrixIds.parent.toFile().mkdirs()
 
-        Runtime.getRuntime().addShutdownHook(Thread {
-            File(parent).deleteRecursively()
-        })
+        Runtime.getRuntime().addShutdownHook(
+            Thread {
+                File(parent).deleteRecursively()
+            }
+        )
 
         if (matrixIds.toFile().exists() && yamlCfg.toFile().exists()) return
 
         Files.write(
-            matrixIds, """
+            matrixIds,
+            """
                 {
                 "matrix-1": {
                 "matrixId": "matrix-1",
@@ -48,7 +51,8 @@ class RefreshCommandTest {
         )
 
         Files.write(
-            yamlCfg, """
+            yamlCfg,
+            """
              gcloud:
                app: ../test_projects/android/apks/app-debug.apk
                test: ../test_projects/android/apks/app-debug-androidTest.apk

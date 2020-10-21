@@ -1,13 +1,15 @@
 package flank.scripts.utils
 
-import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.SerializationStrategy
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
-import kotlinx.serialization.stringify
 
-private val json by lazy { Json(JsonConfiguration.Stable) }
+private val json by lazy {
+    Json {
+        ignoreUnknownKeys = true
+    }
+}
 
-fun <T> T.toJson(serializationStrategy: SerializationStrategy<T>) = json.stringify(serializationStrategy, this)
+internal inline fun <reified T> T.toJson() = json.encodeToString(this)
 
-fun <T> String.toObject(deserializationStrategy: DeserializationStrategy<T>) = json.parse(deserializationStrategy, this)
+internal inline fun <reified T> String.toObject() = json.decodeFromString<T>(this)

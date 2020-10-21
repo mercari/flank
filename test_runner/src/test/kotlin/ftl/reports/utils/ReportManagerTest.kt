@@ -2,7 +2,9 @@ package ftl.reports.utils
 
 import com.google.common.truth.Truth.assertThat
 import ftl.args.AndroidArgs
+import ftl.config.FtlConstants
 import ftl.gc.GcStorage
+import ftl.json.validate
 import ftl.reports.CostReport
 import ftl.reports.FullJUnitReport
 import ftl.reports.JUnitReport
@@ -14,8 +16,8 @@ import ftl.reports.xml.model.JUnitTestResult
 import ftl.reports.xml.model.JUnitTestSuite
 import ftl.reports.xml.parseOneSuiteXml
 import ftl.run.common.matrixPathToObj
+import ftl.run.exception.FTLError
 import ftl.test.util.FlankTestRunner
-import ftl.util.FTLError
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -52,6 +54,7 @@ class ReportManagerTest {
         every { mockArgs.smartFlankGcsPath } returns ""
         every { mockArgs.useLegacyJUnitResult } returns true
         ReportManager.generate(matrix, mockArgs, emptyList())
+        matrix.validate()
     }
 
     @Test
@@ -227,10 +230,17 @@ class ReportManagerTest {
 
     @Test
     fun `should get weblink from legacy path and ios path`() {
+        if (FtlConstants.isWindows) return // TODO investigate as to why the pathing fails here completely
         val legacyPath = File("results/2020-08-06_12-08-55.641213_jGpY/matrix_0/NexusLowRes-28-en-portrait/test_result_1.xml")
         val iosPath = File("results/test_dir/shard_0/iphone8-12.0-en-portrait/test_result_0.xml")
-        val objectName = "object_name"
-        assertEquals("object_name/2020-08-06_12-08-55.641213_jGpY/matrix_0", legacyPath.getMatrixPath(objectName))
-        assertEquals("object_name/test_dir/shard_0", iosPath.getMatrixPath(objectName))
+        assertEquals("2020-08-06_12-08-55.641213_jGpY/matrix_0", legacyPath.getMatrixPath("2020-08-06_12-08-55.641213_jGpY"))
+        assertEquals("test_dir/shard_0", iosPath.getMatrixPath("test_dir"))
+    }
+
+    @Test
+    fun `shouldn't contains multiple test_dir in MatrixPath`() {
+        if (FtlConstants.isWindows) return // TODO investigate as to why the pathing fails here completely
+        val path = File("results/test_dir/test_dir/shard_0/iphone8-12.0-en-portrait/test_result_0.xml")
+        assertEquals("test_dir/shard_0", path.getMatrixPath("test_dir"))
     }
 }

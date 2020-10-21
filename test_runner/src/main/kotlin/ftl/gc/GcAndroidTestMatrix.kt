@@ -5,7 +5,6 @@ import com.google.api.services.testing.model.Account
 import com.google.api.services.testing.model.AndroidDeviceList
 import com.google.api.services.testing.model.ClientInfo
 import com.google.api.services.testing.model.EnvironmentMatrix
-import ftl.gc.android.setEnvironmentVariables
 import com.google.api.services.testing.model.GoogleAuto
 import com.google.api.services.testing.model.GoogleCloudStorage
 import com.google.api.services.testing.model.ResultStorage
@@ -14,11 +13,13 @@ import com.google.api.services.testing.model.TestSetup
 import com.google.api.services.testing.model.TestSpecification
 import com.google.api.services.testing.model.ToolResultsHistory
 import ftl.args.AndroidArgs
+import ftl.args.isDontAutograntPermissions
 import ftl.gc.android.mapGcsPathsToApks
 import ftl.gc.android.mapToDeviceFiles
+import ftl.gc.android.setEnvironmentVariables
 import ftl.gc.android.setupAndroidTest
 import ftl.run.platform.android.AndroidTestConfig
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankGeneralError
 import ftl.util.join
 import ftl.util.timeoutToSeconds
 
@@ -34,7 +35,6 @@ object GcAndroidTestMatrix {
         toolResultsHistory: ToolResultsHistory,
         additionalApkGcsPaths: List<String>
     ): Testing.Projects.TestMatrices.Create {
-
         // https://github.com/bootstraponline/studio-google-cloud-testing/blob/203ed2890c27a8078cd1b8f7ae12cf77527f426b/firebase-testing/src/com/google/gct/testing/launcher/CloudTestsLauncher.java#L120
         val clientInfo = ClientInfo()
             .setName("Flank")
@@ -58,6 +58,7 @@ object GcAndroidTestMatrix {
             .setAdditionalApks(additionalApkGcsPaths.mapGcsPathsToApks())
             .setFilesToPush(otherFiles.mapToDeviceFiles())
             .setEnvironmentVariables(args, androidTestConfig)
+            .setDontAutograntPermissions(args.isDontAutograntPermissions)
 
         val testTimeoutSeconds = timeoutToSeconds(args.testTimeout)
 

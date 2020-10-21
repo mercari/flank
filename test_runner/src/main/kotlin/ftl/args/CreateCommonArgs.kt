@@ -41,7 +41,10 @@ fun CommonConfig.createCommonArgs(
     filesToDownload = flank.filesToDownload!!,
     disableSharding = flank.disableSharding!!,
     localResultDir = flank.localResultsDir!!,
-    disableResultsUpload = flank.disableResultsUpload!!
+    disableResultsUpload = flank.disableResultsUpload!!,
+    defaultTestTime = flank.defaultTestTime!!,
+    defaultClassTestTime = flank.defaultClassTestTime!!,
+    useAverageTestTimeForNewTests = flank.useAverageTestTimeForNewTests!!
 ).apply {
     ArgsHelper.createJunitBucket(project, smartFlankGcsPath)
 }

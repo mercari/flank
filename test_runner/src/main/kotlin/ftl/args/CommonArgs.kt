@@ -34,5 +34,8 @@ data class CommonArgs(
     override val ignoreFailedTests: Boolean,
     override val keepFilePath: Boolean,
     override val outputStyle: OutputStyle,
-    override val disableResultsUpload: Boolean
+    override val disableResultsUpload: Boolean,
+    override val defaultTestTime: Double,
+    override val defaultClassTestTime: Double,
+    override val useAverageTestTimeForNewTests: Boolean
 ) : IArgs

@@ -15,7 +15,7 @@ gcloud:
 
   ## The max time this test execution can run before it is cancelled (default: 15m).
   ## It does not include any time necessary to prepare and clean up the target device.
-  ## The maximum possible testing time is 30m on physical devices and 60m on virtual devices.
+  ## The maximum possible testing time is 45m on physical devices and 60m on virtual devices.
   ## The TIMEOUT units can be h, m, or s. If no unit is given, seconds are assumed.
   # timeout: 30m
 
@@ -56,6 +56,10 @@ gcloud:
   ## The given path may be in the local filesystem or in Google Cloud Storage using a URL beginning with gs://.
   test: ../test_projects/android/apks/app-debug-androidTest.apk
 
+  ## A list of up to 100 additional APKs to install, in addition to those being directly tested.
+  ## The path may be in the local filesystem or in Google Cloud Storage using gs:// notation.
+  # additional-apks: additional-apk1.apk,additional-apk2.apk,additional-apk3.apk
+
   ## Automatically log into the test device using a preconfigured Google account before beginning the test.
   ## Disabled by default. Use --auto-google-login to enable.
   # auto-google-login: true
@@ -78,12 +82,33 @@ gcloud:
   # directories-to-pull:
   #   - /sdcard/
 
+  ## The type of test to run. TYPE must be one of: instrumentation, robo, game-loop.
+  # type: instrumentation
+
+  ## Whether to grant runtime permissions on the device before the test begins.
+  ## By default, all permissions are granted. PERMISSIONS must be one of: all, none
+  # grant-permissions: all
+
   ## A list of device-path: file-path pairs that indicate the device paths to push files to the device before starting tests, and the paths of files to push.
   ## Device paths must be under absolute, whitelisted paths (${EXTERNAL_STORAGE}, or ${ANDROID_DATA}/local/tmp).
   ## Source file paths may be in the local filesystem or in Google Cloud Storage (gs://…).
   # other-files
   #   - /sdcard/dir1/file1.txt: local/file.txt
   #   - /sdcard/dir2/file2.jpg: gs://bucket/file.jpg
+
+  ## A list of game-loop scenario numbers which will be run as part of the test (default: all scenarios).
+  ## A maximum of 1024 scenarios may be specified in one test matrix, but the maximum number may also be limited by the overall test --timeout setting.
+  # scenario-numbers:
+  #   - 1
+  #   - 2
+  #   - 3
+
+  ## A list of game-loop scenario labels (default: None). Each game-loop scenario may be labeled in the APK manifest file with one or more arbitrary strings, creating logical groupings (e.g. GPU_COMPATIBILITY_TESTS).
+  ## If --scenario-numbers and --scenario-labels are specified together, Firebase Test Lab will first execute each scenario from --scenario-numbers.
+  ## It will then expand each given scenario label into a list of scenario numbers marked with that label, and execute those scenarios.
+  # scenario-labels:
+  #  - label1
+  #  - label2
 
   ## Monitor and record performance metrics: CPU, memory, network usage, and FPS (game-loop only).
   ## Disabled by default. Use --performance-metrics to enable.
@@ -160,6 +185,19 @@ flank:
   ## Disables smart flank JUnit XML uploading. Useful for preventing timing data from being updated.
   ## Default: false
   # smart-flank-disable-upload: false
+
+  ## Enable using average time from previous tests duration when using SmartShard and tests did not run before.
+  ## Default: false
+  # use-average-test-time-for-new-tests: true
+
+  ## Set default test time used for calculating shards.
+  ## Default: 120.0
+  # default-test-time: 15
+
+  ## Set default test time (in seconds) used for calculating shards of parametrized classes when previous tests results are not available.
+  ## Default test time for classes should be different from the default time for test
+  ## Default: 240.0
+  # default-class-test-time: 30
 
   ## Disables sharding. Useful for parameterized tests.
   # disable-sharding: false

@@ -4,6 +4,7 @@ import com.google.api.services.toolresults.model.FailureDetail
 import com.google.api.services.toolresults.model.InconclusiveDetail
 import com.google.api.services.toolresults.model.Outcome
 import com.google.api.services.toolresults.model.SkippedDetail
+import com.google.common.annotations.VisibleForTesting
 import ftl.reports.api.data.TestSuiteOverviewData
 import ftl.util.StepOutcome.failure
 import ftl.util.StepOutcome.flaky
@@ -12,14 +13,20 @@ import ftl.util.StepOutcome.skipped
 import ftl.util.StepOutcome.success
 import ftl.util.StepOutcome.unset
 
-fun Outcome.getDetails(testSuiteOverviewData: TestSuiteOverviewData?) = when (summary) {
-    success, flaky -> testSuiteOverviewData?.getSuccessOutcomeDetails(successDetail?.otherNativeCrash ?: false)
+internal fun Outcome?.getDetails(
+    testSuiteOverviewData: TestSuiteOverviewData?,
+    isRoboTest: Boolean = false
+): String = when (this?.summary) {
+    success, flaky -> if (isRoboTest) "---" else getSuccessOutcomeDetails(testSuiteOverviewData)
     failure -> failureDetail.getFailureOutcomeDetails(testSuiteOverviewData)
     inconclusive -> inconclusiveDetail.formatOutcomeDetails()
     skipped -> skippedDetail.formatOutcomeDetails()
     unset -> "Unset outcome"
     else -> "Unknown outcome"
 }
+
+private fun Outcome?.getSuccessOutcomeDetails(data: TestSuiteOverviewData?) =
+    data?.getSuccessOutcomeDetails(this?.successDetail?.otherNativeCrash ?: false) ?: "Unknown outcome"
 
 private fun TestSuiteOverviewData.getSuccessOutcomeDetails(
     otherNativeCrash: Boolean
@@ -32,13 +39,15 @@ private fun TestSuiteOverviewData.getSuccessOutcomeDetails(
 private val TestSuiteOverviewData.successCount
     get() = total - errors - failures - skipped - flakes
 
-private fun FailureDetail?.getFailureOutcomeDetails(testSuiteOverviewData: TestSuiteOverviewData?) = when {
+@VisibleForTesting
+internal fun FailureDetail?.getFailureOutcomeDetails(testSuiteOverviewData: TestSuiteOverviewData?) = when {
     this == null -> testSuiteOverviewData?.buildFailureOutcomeDetailsSummary() ?: "Unknown failure"
     crashed == true -> "Application crashed"
     timedOut == true -> "Test timed out"
     notInstalled == true -> "App failed to install"
+    failedRoboscript == true -> "Test failed to run"
     else -> testSuiteOverviewData?.buildFailureOutcomeDetailsSummary() ?: "Unknown failure"
-} + this?.takeIf { it.otherNativeCrash }?.let { NATIVE_CRASH_MESSAGE }.orEmpty()
+} + this?.takeIf { it.otherNativeCrash ?: false }?.let { NATIVE_CRASH_MESSAGE }.orEmpty()
 
 private fun TestSuiteOverviewData.buildFailureOutcomeDetailsSummary() =
     StringBuilder("$failures test cases failed").apply {

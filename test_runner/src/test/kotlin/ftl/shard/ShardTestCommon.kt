@@ -10,7 +10,6 @@ import io.mockk.every
 import io.mockk.mockk
 
 internal fun sample(): JUnitTestResult {
-
     val testCases = mutableListOf(
         JUnitTestCase("a", "a", "1.0"),
         JUnitTestCase("b", "b", "2.0"),
@@ -33,5 +32,8 @@ internal fun mockArgs(maxTestShards: Int, shardTime: Int = 0): IArgs {
     val mockArgs = mockk<IosArgs>()
     every { mockArgs.maxTestShards } returns maxTestShards
     every { mockArgs.shardTime } returns shardTime
+    every { mockArgs.defaultTestTime } returns DEFAULT_TEST_TIME_SEC
+    every { mockArgs.defaultClassTestTime } returns DEFAULT_CLASS_TEST_TIME_SEC
+    every { mockArgs.useAverageTestTimeForNewTests } returns false
     return mockArgs
 }

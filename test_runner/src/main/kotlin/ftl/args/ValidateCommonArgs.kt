@@ -2,8 +2,11 @@ package ftl.args
 
 import ftl.config.Device
 import ftl.config.FtlConstants
-import ftl.util.FlankConfigurationError
-import ftl.util.FlankGeneralError
+import ftl.gc.GcStorage
+import ftl.reports.FullJUnitReport
+import ftl.reports.JUnitReport
+import ftl.run.exception.FlankConfigurationError
+import ftl.run.exception.FlankGeneralError
 
 fun CommonArgs.validate() {
     assertProjectId()
@@ -11,6 +14,7 @@ fun CommonArgs.validate() {
     assertRepeatTests()
     assertSmartFlankGcsPath()
     assertOrientationCorrectness()
+    checkDisableSharding()
 }
 
 private fun List<Device>.devicesWithMispeltOrientations(availableOrientations: List<String>) =
@@ -24,10 +28,10 @@ private fun List<Device>.throwIfAnyMisspelt() =
     else Unit
 
 private fun CommonArgs.assertProjectId() {
-    if (project.isEmpty()) throw FlankConfigurationError(
+    if (project.isBlank()) throw FlankConfigurationError(
         "The project is not set. Define GOOGLE_CLOUD_PROJECT, set project in flank.yml\n" +
-                "or save service account credential to ${FtlConstants.defaultCredentialPath}\n" +
-                " See https://github.com/GoogleCloudPlatform/google-cloud-java#specifying-a-project-id"
+            "or save service account credential to ${FtlConstants.defaultCredentialPath}\n" +
+            " See https://github.com/GoogleCloudPlatform/google-cloud-java#specifying-a-project-id"
     )
 }
 
@@ -45,7 +49,7 @@ private fun CommonArgs.assertRepeatTests() {
 
 private fun CommonArgs.assertSmartFlankGcsPath() = with(smartFlankGcsPath) {
     when {
-        isEmpty() -> Unit
+        isBlank() -> Unit
 
         startsWith(FtlConstants.GCS_PREFIX).not() -> throw FlankConfigurationError(
             "smart-flank-gcs-path must start with gs://"
@@ -54,5 +58,23 @@ private fun CommonArgs.assertSmartFlankGcsPath() = with(smartFlankGcsPath) {
         count { it == '/' } <= 2 || endsWith(".xml").not() -> throw FlankConfigurationError(
             "smart-flank-gcs-path must be in the format gs://bucket/foo.xml"
         )
+
+        smartFlankDisableUpload.not() && contains("/${FullJUnitReport.fileName()}") && fullJUnitResult.not() -> throw FlankConfigurationError(
+            "smart-flank-gcs-path is set with ${FullJUnitReport.fileName()} but in this run --full-junit-result is disabled, please set --full-junit-result flag"
+        )
+
+        smartFlankDisableUpload.not() && contains("/${JUnitReport.fileName()}") && fullJUnitResult -> throw FlankConfigurationError(
+            "smart-flank-gcs-path is set with ${JUnitReport.fileName()} but in this run --full-junit-result enabled, please turn off --full-junit-result flag"
+        )
     }
+}
+
+fun IArgs.checkResultsDirUnique() {
+    if (useLegacyJUnitResult && GcStorage.exist(resultsBucket, resultsDir))
+        println("WARNING: Google cloud storage result directory should be unique, otherwise results from multiple test matrices will be overwritten or intermingled\n")
+}
+
+fun IArgs.checkDisableSharding() {
+    if (disableSharding && maxTestShards > 0)
+        println("WARNING: disable-sharding enabled with max-test-shards = $maxTestShards, Flank will ignore max-test-shard and disable sharding.")
 }

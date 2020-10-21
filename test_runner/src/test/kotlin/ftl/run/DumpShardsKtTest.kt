@@ -3,14 +3,21 @@ package ftl.run
 import com.google.common.truth.Truth.assertThat
 import ftl.args.AndroidArgs
 import ftl.args.IosArgs
+import ftl.cli.firebase.test.android.AndroidRunCommand
+import ftl.cli.firebase.test.ios.IosRunCommand
+import ftl.config.FtlConstants
+import ftl.doctor.assertEqualsIgnoreNewlineStyle
+import ftl.test.util.FlankTestRunner
 import ftl.test.util.ios2ConfigYaml
 import ftl.test.util.mixedConfigYaml
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
+import org.junit.runner.RunWith
 import java.io.File
 
+@RunWith(FlankTestRunner::class)
 class DumpShardsKtTest {
 
     @Test
@@ -37,29 +44,29 @@ class DumpShardsKtTest {
     "test": "$path/src/test/kotlin/ftl/fixtures/tmp/apk/app-multiple-flaky-debug-androidTest.apk",
     "shards": {
       "shard-0": [
+        "class com.example.test_app.parametrized.EspressoParametrizedClassParameterizedNamed",
+        "class com.example.test_app.parametrized.EspressoParametrizedClassTestParameterized",
         "class com.example.test_app.InstrumentedTest#test1",
-        "class com.example.test_app.InstrumentedTest#test2",
-        "class com.example.test_app.ParameterizedTest",
-        "class com.example.test_app.parametrized.EspressoParametrizedClassParameterizedNamed"
+        "class com.example.test_app.InstrumentedTest#test2"
       ],
       "shard-1": [
+        "class com.example.test_app.ParameterizedTest",
+        "class com.example.test_app.parametrized.EspressoParametrizedMethodTestJUnitParamsRunner",
         "class com.example.test_app.InstrumentedTest#test0",
         "class com.example.test_app.bar.BarInstrumentedTest#testBar",
-        "class com.example.test_app.foo.FooInstrumentedTest#testFoo",
-        "class com.example.test_app.parametrized.EspressoParametrizedClassTestParameterized",
-        "class com.example.test_app.parametrized.EspressoParametrizedMethodTestJUnitParamsRunner"
+        "class com.example.test_app.foo.FooInstrumentedTest#testFoo"
       ]
     },
     "junit-ignored": [
-      "class com.example.test_app.InstrumentedTest#ignoredTest1",
-      "class com.example.test_app.InstrumentedTest#ignoredTest2",
+      "class com.example.test_app.InstrumentedTest#ignoredTestWitSuppress",
+      "class com.example.test_app.InstrumentedTest#ignoredTestWithIgnore",
       "class com.example.test_app.bar.BarInstrumentedTest#ignoredTestBar",
       "class com.example.test_app.foo.FooInstrumentedTest#ignoredTestFoo"
     ]
   }
 }
         """.trimIndent()
-
+        if (FtlConstants.isWindows) return // TODO Windows Linux subsytem does not contain all expected commands
         // when
         val actual = runBlocking {
             dumpShards(AndroidArgs.load(mixedConfigYaml), TEST_SHARD_FILE)
@@ -67,7 +74,7 @@ class DumpShardsKtTest {
         }
 
         // then
-        assertEquals(expected, actual)
+        assertEqualsIgnoreNewlineStyle(expected, actual)
     }
 
     @Test
@@ -118,7 +125,7 @@ class DumpShardsKtTest {
 
         // when
         val actual = runBlocking {
-            dumpShards(AndroidArgs.load(mixedConfigYaml), TEST_SHARD_FILE, true)
+            dumpShards(AndroidArgs.load(mixedConfigYaml, AndroidRunCommand().apply { obfuscate = true }), TEST_SHARD_FILE)
             File(TEST_SHARD_FILE).apply { deleteOnExit() }.readText()
         }
 
@@ -145,7 +152,7 @@ class DumpShardsKtTest {
   ]
 ]
         """.trimIndent()
-
+        if (FtlConstants.isWindows) return // TODO Windows Linux subsytem does not contain all expected commands
         // when
         val actual = runBlocking {
             dumpShards(IosArgs.load(ios2ConfigYaml), TEST_SHARD_FILE)
@@ -175,9 +182,10 @@ class DumpShardsKtTest {
 ]
         """.trimIndent()
 
+        if (FtlConstants.isWindows) return // TODO Windows Linux subsytem does not contain all expected commands
         // when
         val actual = runBlocking {
-            dumpShards(IosArgs.load(ios2ConfigYaml), TEST_SHARD_FILE, true)
+            dumpShards(IosArgs.load(ios2ConfigYaml, IosRunCommand().apply { obfuscate = true }), TEST_SHARD_FILE)
             File(TEST_SHARD_FILE).apply { deleteOnExit() }.readText()
         }
 

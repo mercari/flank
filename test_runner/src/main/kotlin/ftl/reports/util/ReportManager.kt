@@ -7,6 +7,7 @@ import ftl.args.IosArgs
 import ftl.args.ShardChunks
 import ftl.gc.GcStorage
 import ftl.json.MatrixMap
+import ftl.json.isAllSuccessful
 import ftl.reports.CostReport
 import ftl.reports.FullJUnitReport
 import ftl.reports.HtmlErrorReport
@@ -26,21 +27,19 @@ import kotlin.math.roundToInt
 
 object ReportManager {
 
-    private fun findXmlFiles(matrices: MatrixMap, args: IArgs): List<File> {
-        val xmlFiles = mutableListOf<File>()
-        val rootFolder = File(resolveLocalRunPath(matrices, args))
-
-        rootFolder.walk().forEach {
-            if (it.name.matches(Artifacts.testResultRgx)) {
-                xmlFiles.add(it)
-            }
+    private fun findXmlFiles(
+        matrices: MatrixMap,
+        args: IArgs
+    ) = File(resolveLocalRunPath(matrices, args)).walk()
+        .filter { it.name.matches(Artifacts.testResultRgx) }
+        .fold(listOf<File>()) { xmlFiles, file ->
+            xmlFiles + file
         }
 
-        return xmlFiles
-    }
-
-    private fun getWebLink(matrices: MatrixMap, xmlFile: File): String = xmlFile.getMatrixPath(matrices.runPath)
-        ?.findMatrixPath(matrices) ?: "".also { println("WARNING: Matrix path not found in JSON.") }
+    private fun getWebLink(matrices: MatrixMap, xmlFile: File): String =
+        xmlFile.getMatrixPath(matrices.runPath)
+            ?.findMatrixPath(matrices)
+            ?: "".also { println("WARNING: Matrix path not found in JSON.") }
 
     private val deviceStringRgx = Regex("([^-]+-[^-]+-[^-]+-[^-]+).*")
 
@@ -102,32 +101,38 @@ object ReportManager {
             it.run(matrices, testSuite, printToStdout = true, args = args)
         }
 
-        if (!matrices.allSuccessful()) {
+        if (!matrices.isAllSuccessful()) {
             listOf(
                 HtmlErrorReport
             ).map { it.run(matrices, testSuite, printToStdout = false, args = args) }
         }
-        JUnitReport.run(matrices, testSuite?.apply {
-            if (ignoredTestCases.isNotEmpty()) {
-                testsuites?.add(ignoredTestCases.toJunitTestsResults())
-            }
-        }, printToStdout = false, args = args)
+        JUnitReport.run(
+            matrices,
+            testSuite?.apply {
+                if (ignoredTestCases.isNotEmpty()) {
+                    testsuites?.add(ignoredTestCases.toJunitTestsResults())
+                }
+            },
+            printToStdout = false,
+            args = args
+        )
         when {
             args.fullJUnitResult -> processFullJunitResult(args, matrices, testShardChunks)
             args.useLegacyJUnitResult -> processJunitXml(testSuite, args, testShardChunks)
             else -> processJunitXml(testSuite, args, testShardChunks)
         }
-        matrices.validateMatrices(args.ignoreFailedTests)
     }
 
-    private fun IgnoredTestCases.toJunitTestsResults() = getSkippedJUnitTestSuite(map {
-        JUnitTestCase(
-            classname = it.split("#").first().replace("class ", ""),
-            name = it.split("#").last(),
-            time = "0.0",
-            skipped = null
-        )
-    })
+    private fun IgnoredTestCases.toJunitTestsResults() = getSkippedJUnitTestSuite(
+        map {
+            JUnitTestCase(
+                classname = it.split("#").first().replace("class ", ""),
+                name = it.split("#").last(),
+                time = "0.0",
+                skipped = null
+            )
+        }
+    )
 
     private fun processFullJunitResult(args: IArgs, matrices: MatrixMap, testShardChunks: ShardChunks) {
         val testSuite = processXmlFromApi(matrices, args, withStackTraces = true)
@@ -173,9 +178,11 @@ object ReportManager {
     ) {
         val list = createShardEfficiencyList(oldResult, newResult, args, testShardChunks)
 
-        println("Actual shard times:\n" + list.joinToString("\n") {
-            "  ${it.shard}: Expected: ${it.expectedTime.roundToInt()}s, Actual: ${it.finalTime.roundToInt()}s, Diff: ${it.timeDiff.roundToInt()}s"
-        } + "\n")
+        println(
+            "Actual shard times:\n" + list.joinToString("\n") {
+                "  ${it.shard}: Expected: ${it.expectedTime.roundToInt()}s, Actual: ${it.finalTime.roundToInt()}s, Diff: ${it.timeDiff.roundToInt()}s"
+            } + "\n"
+        )
     }
 
     private fun processJunitXml(
@@ -199,6 +206,10 @@ object ReportManager {
     }
 }
 
-private fun String.findMatrixPath(matrices: MatrixMap) =
-    matrices.map.values.firstOrNull { savedMatrix -> savedMatrix.gcsPath.endsWith(this) }?.webLink
-        ?: "".also { println("WARNING: Matrix path not found in JSON. $this") }
+private fun String.findMatrixPath(matrices: MatrixMap) = matrices.map.values
+    .firstOrNull { savedMatrix -> savedMatrix.gcsPath.endsWithTextWithOptionalSlashAtTheEnd(this) }
+    ?.webLink
+    ?: "".also { println("WARNING: Matrix path not found in JSON. $this") }
+
+@VisibleForTesting
+internal fun String.endsWithTextWithOptionalSlashAtTheEnd(text: String) = "($text)/*$".toRegex().containsMatchIn(this)

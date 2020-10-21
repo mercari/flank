@@ -10,27 +10,30 @@ import com.google.cloud.storage.BucketInfo
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.StorageClass
 import com.google.cloud.storage.StorageOptions
+import ftl.args.ArgsHelper.convertToWindowsPath
 import ftl.args.IArgs.Companion.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE
 import ftl.args.yml.YamlObjectMapper
 import ftl.config.FtlConstants
 import ftl.config.FtlConstants.GCS_PREFIX
 import ftl.config.FtlConstants.JSON_FACTORY
 import ftl.config.FtlConstants.defaultCredentialPath
+import ftl.config.FtlConstants.isWindows
 import ftl.config.FtlConstants.useMock
 import ftl.gc.GcStorage
 import ftl.gc.GcToolResults
 import ftl.reports.xml.model.JUnitTestResult
-import ftl.shard.StringShards
 import ftl.shard.createShardsByShardCount
 import ftl.shard.shardCountByTime
-import ftl.shard.stringShards
-import ftl.util.FlankConfigurationError
-import ftl.util.FlankGeneralError
+import ftl.run.exception.FlankConfigurationError
+import ftl.run.exception.FlankGeneralError
+import ftl.shard.Chunk
+import ftl.shard.TestMethod
 import ftl.util.FlankTestMethod
 import ftl.util.assertNotEmpty
 import java.io.File
 import java.net.URI
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.regex.Pattern
@@ -42,16 +45,21 @@ object ArgsHelper {
     }
 
     fun assertFileExists(file: String, name: String) {
-        if (!File(file).exists()) {
-            throw FlankGeneralError("'$file' $name doesn't exist")
-        }
+        if (!file.exist()) throw FlankGeneralError("'$file' $name doesn't exist")
     }
+
+    private fun String.convertToWindowsPath() =
+        this.replace("/", "\\").replaceFirst("~", System.getProperty("user.home"))
+
+    private fun String.exist() =
+        if (startsWith(GCS_PREFIX)) GcStorage.exist(this) else File(this).exists()
 
     fun assertCommonProps(args: IArgs) {
         assertNotEmpty(
-            args.project, "The project is not set. Define GOOGLE_CLOUD_PROJECT, set project in flank.yml\n" +
-                    "or save service account credential to ${defaultCredentialPath}\n" +
-                    " See https://github.com/GoogleCloudPlatform/google-cloud-java#specifying-a-project-id"
+            args.project,
+            "The project is not set. Define GOOGLE_CLOUD_PROJECT, set project in flank.yml\n" +
+                "or save service account credential to ${defaultCredentialPath}\n" +
+                " See https://github.com/GoogleCloudPlatform/google-cloud-java#specifying-a-project-id"
         )
 
         if (args.maxTestShards !in AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE && args.maxTestShards != -1)
@@ -70,11 +78,18 @@ object ArgsHelper {
         }
     }
 
+    private fun String.inferCorrectPath() = if (isWindows) this.trim().convertToWindowsPath()
+    else this.trim().replaceFirst(Regex("^~"), System.getProperty("user.home"))
+
     fun evaluateFilePath(filePath: String): String {
-        var file = filePath.trim().replaceFirst(Regex("^~"), System.getProperty("user.home"))
+        var file = filePath.inferCorrectPath()
         file = evaluateEnvVars(file)
         // avoid File(..).canonicalPath since that will resolve symlinks
-        file = Paths.get(file).toAbsolutePath().normalize().toString()
+        try {
+            file = Paths.get(file).toAbsolutePath().normalize().toString()
+        } catch (e: InvalidPathException) {
+            throw FlankGeneralError("Invalid path exception: $e")
+        }
 
         // Avoid walking the folder's parent dir if we know it exists already.
         if (File(file).exists()) return file
@@ -114,7 +129,7 @@ object ArgsHelper {
     }
 
     fun createJunitBucket(projectId: String, junitGcsPath: String) {
-        if (useMock || junitGcsPath.isEmpty()) return
+        if (useMock || junitGcsPath.isBlank()) return
         val bucket = junitGcsPath.drop(GCS_PREFIX.length).substringBefore('/')
         createGcsBucket(projectId, bucket)
     }
@@ -122,7 +137,7 @@ object ArgsHelper {
     // Make best effort to list/create the bucket.
     // Due to permission issues, the user may not be able to list or create buckets.
     fun createGcsBucket(projectId: String, bucket: String): String {
-        if (bucket.isEmpty()) return GcToolResults.getDefaultBucket(projectId)
+        if (bucket.isBlank()) return GcToolResults.getDefaultBucket(projectId)
             ?: throw FlankGeneralError("Failed to make bucket for $projectId")
         if (useMock) return bucket
 
@@ -157,7 +172,7 @@ object ArgsHelper {
                     .build()
             )
         } catch (e: Exception) {
-            // User may not have create permission
+            println("Warning: Failed to make bucket for $projectId\nCause: ${e.message}")
         }
 
         return bucket
@@ -218,34 +233,45 @@ object ArgsHelper {
     ): CalculateShardsResult {
         if (filteredTests.isEmpty()) {
             // Avoid unnecessary computing if we already know there aren't tests to run.
-            return CalculateShardsResult(listOf(emptyList()), emptyList())
+            return CalculateShardsResult(emptyList(), emptyList())
         }
         val (ignoredTests, testsToExecute) = filteredTests.partition { it.ignored }
         val shards = if (args.disableSharding) {
-            // Avoid to cast it to MutableList<String> to be agnostic from the caller.
-            listOf(testsToExecute.map { it.testName }.toMutableList())
+            listOf(
+                Chunk(
+                    testsToExecute.map {
+                        TestMethod(
+                            name = it.testName,
+                            isParameterized = it.isParameterizedClass,
+                            time = 0.0
+                        )
+                    }
+                )
+            )
         } else {
             val oldTestResult = GcStorage.downloadJunitXml(args) ?: JUnitTestResult(mutableListOf())
             val shardCount = forcedShardCount ?: shardCountByTime(testsToExecute, oldTestResult, args)
-            createShardsByShardCount(testsToExecute, oldTestResult, args, shardCount).stringShards()
+            createShardsByShardCount(testsToExecute, oldTestResult, args, shardCount).map { Chunk(it.testMethods) }
         }
 
-        return CalculateShardsResult(testMethodsAlwaysRun(shards, args), ignoredTestCases = ignoredTests.map { it.testName })
+        return CalculateShardsResult(
+            testMethodsAlwaysRun(shards, args),
+            ignoredTestCases = ignoredTests.map { it.testName }
+        )
     }
 
-    private fun testMethodsAlwaysRun(shards: StringShards, args: IArgs): StringShards {
+    private fun testMethodsAlwaysRun(shards: List<Chunk>, args: IArgs): List<Chunk> {
         val alwaysRun = args.testTargetsAlwaysRun
+        val find = shards.flatMap { it.testMethods }.filter { alwaysRun.contains(it.name) }
 
-        shards.forEach { shard ->
-            shard.removeAll(alwaysRun)
-            shard.addAll(0, alwaysRun)
-        }
-
-        return shards
+        return shards.map { Chunk(find + it.testMethods.filterNot { method -> find.contains(method) }) }
     }
 }
 
-fun String.processFilePath(name: String): String =
-    if (startsWith(GCS_PREFIX))
-        this.also { ArgsHelper.assertGcsFileExists(it) } else
-        ArgsHelper.evaluateFilePath(this).also { ArgsHelper.assertFileExists(it, name) }
+fun String.normalizeFilePath(): String =
+    if (startsWith(GCS_PREFIX)) this
+    else try {
+        ArgsHelper.evaluateFilePath(this)
+    } catch (e: Throwable) {
+        this
+    }

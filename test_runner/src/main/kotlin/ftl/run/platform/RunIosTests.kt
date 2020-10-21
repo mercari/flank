@@ -9,10 +9,13 @@ import ftl.gc.GcStorage
 import ftl.gc.GcToolResults
 import ftl.http.executeWithRetry
 import ftl.ios.Xctestrun
+import ftl.run.IOS_SHARD_FILE
+import ftl.run.dumpShards
 import ftl.run.model.TestResult
 import ftl.run.platform.common.afterRunTests
 import ftl.run.platform.common.beforeRunMessage
 import ftl.run.platform.common.beforeRunTests
+import ftl.shard.testCases
 import ftl.util.ShardCounter
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +38,10 @@ internal suspend fun runIosTests(iosArgs: IosArgs): TestResult = coroutineScope 
     val shardCounter = ShardCounter()
     val history = GcToolResults.createToolResultsHistory(iosArgs)
 
+    dumpShards(iosArgs)
+    if (iosArgs.disableResultsUpload.not())
+        GcStorage.upload(IOS_SHARD_FILE, iosArgs.resultsBucket, iosArgs.resultsDir)
+
     // Upload only after parsing shards to detect missing methods early.
     val xcTestGcsPath = getXcTestGcPath(iosArgs, runGcsPath)
 
@@ -47,7 +54,7 @@ internal suspend fun runIosTests(iosArgs: IosArgs): TestResult = coroutineScope 
                     iosDeviceList = iosDeviceList,
                     testZipGcsPath = xcTestGcsPath,
                     runGcsPath = runGcsPath,
-                    testTargets = testTargets,
+                    testTargets = testTargets.testMethodNames,
                     xcTestParsed = xcTestParsed,
                     args = iosArgs,
                     shardCounter = shardCounter,
@@ -59,7 +66,7 @@ internal suspend fun runIosTests(iosArgs: IosArgs): TestResult = coroutineScope 
 
     TestResult(
         matrixMap = afterRunTests(jobs.awaitAll(), runGcsPath, stopwatch, iosArgs),
-        shardChunks = iosArgs.testShardChunks
+        shardChunks = iosArgs.testShardChunks.testCases
     )
 }
 

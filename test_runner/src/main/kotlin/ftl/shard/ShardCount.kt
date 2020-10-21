@@ -3,7 +3,7 @@ package ftl.shard
 import ftl.args.IArgs
 import ftl.args.IArgs.Companion.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE
 import ftl.reports.xml.model.JUnitTestResult
-import ftl.util.FlankConfigurationError
+import ftl.run.exception.FlankConfigurationError
 import ftl.util.FlankTestMethod
 import kotlin.math.ceil
 import kotlin.math.min
@@ -26,14 +26,33 @@ private fun calculateShardCount(
     testsToRun: List<FlankTestMethod>,
     oldTestResult: JUnitTestResult,
     args: IArgs
-): Int = calculateShardCount(
-    args = args,
-    testsTotalTime = testTotalTime(testsToRun, createTestMethodDurationMap(oldTestResult, args)),
-    testsToRunCount = testsToRun.size
-)
+): Int {
+    val previousMethodDurations = createTestMethodDurationMap(oldTestResult, args)
+    return calculateShardCount(
+        args = args,
+        testsTotalTime = testTotalTime(
+            testsToRun,
+            previousMethodDurations,
+            args.fallbackTestTime(previousMethodDurations),
+            args.defaultClassTestTime
+        ),
+        testsToRunCount = testsToRun.size
+    )
+}
 
-private fun testTotalTime(testsToRun: List<FlankTestMethod>, previousMethodDurations: Map<String, Double>): Double =
-    testsToRun.sumByDouble { flankTestMethod -> getTestMethodTime(flankTestMethod, previousMethodDurations) }
+private fun testTotalTime(
+    testsToRun: List<FlankTestMethod>,
+    previousMethodDurations: Map<String, Double>,
+    defaultTestTime: Double,
+    defaultClassTestTime: Double
+) = testsToRun.sumByDouble { flankTestMethod ->
+    getTestMethodTime(
+        flankTestMethod,
+        previousMethodDurations,
+        defaultTestTime,
+        defaultClassTestTime
+    )
+}
 
 private fun calculateShardCount(
     args: IArgs,

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import ftl.args.yml.IYmlKeys
+import ftl.args.yml.ymlKeys
 import ftl.config.Config
 import ftl.config.FlankDefaults
 import picocli.CommandLine
@@ -23,22 +24,24 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
     @set:CommandLine.Option(
         names = ["--app"],
         description = ["The path to the application binary file. " +
-                "The path may be in the local filesystem or in Google Cloud Storage using gs:// notation."]
+            "The path may be in the local filesystem or in Google Cloud Storage using gs:// notation."]
     )
+    @set:JsonProperty("app")
     var app: String? by data
 
     @set:CommandLine.Option(
         names = ["--test"],
         description = ["The path to the binary file containing instrumentation tests. " +
-                "The given path may be in the local filesystem or in Google Cloud Storage using a URL beginning with gs://."]
+            "The given path may be in the local filesystem or in Google Cloud Storage using a URL beginning with gs://."]
     )
+    @set:JsonProperty("test")
     var test: String? by data
 
     @set:CommandLine.Option(
         names = ["--additional-apks"],
         split = ",",
         description = ["A list of up to 100 additional APKs to install, in addition to those being directly tested." +
-                "The path may be in the local filesystem or in Google Cloud Storage using gs:// notation. "]
+            "The path may be in the local filesystem or in Google Cloud Storage using gs:// notation. "]
     )
     @set:JsonProperty("additional-apks")
     var additionalApks: List<String>? by data
@@ -46,7 +49,7 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
     @set:CommandLine.Option(
         names = ["--auto-google-login"],
         description = ["Automatically log into the test device using a preconfigured " +
-                "Google account before beginning the test. Disabled by default."]
+            "Google account before beginning the test. Disabled by default."]
     )
     @set:JsonProperty("auto-google-login")
     var autoGoogleLogin: Boolean? by data
@@ -63,10 +66,10 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
     @set:CommandLine.Option(
         names = ["--use-orchestrator"],
         description = ["Whether each test runs in its own Instrumentation instance " +
-                "with the Android Test Orchestrator (default: Orchestrator is used. To disable, use --no-use-orchestrator). " +
-                "Orchestrator is only compatible with AndroidJUnitRunner v1.0 or higher. See " +
-                "https://developer.android.com/training/testing/junit-runner.html#using-android-test-orchestrator for more " +
-                "information about Android Test Orchestrator."]
+            "with the Android Test Orchestrator (default: Orchestrator is used. To disable, use --no-use-orchestrator). " +
+            "Orchestrator is only compatible with AndroidJUnitRunner v1.0 or higher. See " +
+            "https://developer.android.com/training/testing/junit-runner.html#using-android-test-orchestrator for more " +
+            "information about Android Test Orchestrator."]
     )
     @set:JsonProperty("use-orchestrator")
     var useOrchestrator: Boolean? by data
@@ -83,22 +86,38 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
         names = ["--environment-variables"],
         split = ",",
         description = ["A comma-separated, key=value map of environment variables " +
-                "and their desired values. --environment-variables=coverage=true,coverageFile=/sdcard/coverage.ec " +
-                "The environment variables are mirrored as extra options to the am instrument -e KEY1 VALUE1 … command and " +
-                "passed to your test runner (typically AndroidJUnitRunner)"]
+            "and their desired values. --environment-variables=coverage=true,coverageFile=/sdcard/coverage.ec " +
+            "The environment variables are mirrored as extra options to the am instrument -e KEY1 VALUE1 … command and " +
+            "passed to your test runner (typically AndroidJUnitRunner)" +
+            "If you want have downloaded coverage you need also set --directories-to-pull"]
     )
     @set:JsonProperty("environment-variables")
     var environmentVariables: Map<String, String>? by data
 
     @set:CommandLine.Option(
+        names = ["--grant-permissions"],
+        description = ["Whether to grant runtime permissions on the device before the test begins. By default," +
+                " all permissions are granted. PERMISSIONS must be one of: all, none."]
+    )
+    @set:JsonProperty("grant-permissions")
+    var grantPermissions: String? by data
+
+    @set:CommandLine.Option(
+        names = ["--type"],
+        description = ["The type of test to run. TYPE must be one of: instrumentation, robo, game-loop."]
+    )
+    @set:JsonProperty("type")
+    var type: String? by data
+
+    @set:CommandLine.Option(
         names = ["--directories-to-pull"],
         split = ",",
         description = ["A list of paths that will be copied from the device's " +
-                "storage to the designated results bucket after the test is complete. These must be absolute paths under " +
-                "/sdcard or /data/local/tmp (for example, --directories-to-pull /sdcard/tempDir1,/data/local/tmp/tempDir2). " +
-                "Path names are restricted to the characters a-zA-Z0-9_-./+. The paths /sdcard and /data will be made available " +
-                "and treated as implicit path substitutions. E.g. if /sdcard on a particular device does not map to external " +
-                "storage, the system will replace it with the external storage path prefix for that device."]
+            "storage to the designated results bucket after the test is complete. These must be absolute paths under " +
+            "/sdcard or /data/local/tmp (for example, --directories-to-pull /sdcard/tempDir1,/data/local/tmp/tempDir2). " +
+            "Path names are restricted to the characters a-zA-Z0-9_-./+. The paths /sdcard and /data will be made available " +
+            "and treated as implicit path substitutions. E.g. if /sdcard on a particular device does not map to external " +
+            "storage, the system will replace it with the external storage path prefix for that device."]
     )
     @set:JsonProperty("directories-to-pull")
     var directoriesToPull: List<String>? by data
@@ -114,9 +133,30 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
     var otherFiles: Map<String, String>? by data
 
     @set:CommandLine.Option(
+        names = ["--scenario-numbers"],
+        split = ",",
+        description = ["A list of game-loop scenario numbers which will be run as part of the test (default: all scenarios). " +
+                "A maximum of 1024 scenarios may be specified in one test matrix, " +
+                "but the maximum number may also be limited by the overall test --timeout setting."]
+    )
+    @set:JsonProperty("scenario-numbers")
+    var scenarioNumbers: List<String>? by data
+
+    @set:CommandLine.Option(
+        names = ["--scenario-labels"],
+        split = ",",
+        description = ["A list of game-loop scenario labels (default: None). " +
+                "Each game-loop scenario may be labeled in the APK manifest file with one or more arbitrary strings, creating logical groupings (e.g. GPU_COMPATIBILITY_TESTS). " +
+                "If --scenario-numbers and --scenario-labels are specified together, Firebase Test Lab will first execute each scenario from --scenario-numbers. " +
+                "It will then expand each given scenario label into a list of scenario numbers marked with that label, and execute those scenarios."]
+    )
+    @set:JsonProperty("scenario-labels")
+    var scenarioLabels: List<String>? by data
+
+    @set:CommandLine.Option(
         names = ["--performance-metrics"],
         description = ["Monitor and record performance metrics: CPU, memory, " +
-                "network usage, and FPS (game-loop only). Disabled by default."]
+            "network usage, and FPS (game-loop only). Disabled by default."]
     )
     @set:JsonProperty("performance-metrics")
     var performanceMetrics: Boolean? by data
@@ -133,12 +173,12 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
     @set:CommandLine.Option(
         names = ["--num-uniform-shards"],
         description = ["Specifies the number of shards into which you want to evenly distribute test cases." +
-                "The shards are run in parallel on separate devices. For example," +
-                "if your test execution contains 20 test cases and you specify four shards, each shard executes five test cases." +
-                "The number of shards should be less than the total number of test cases." +
-                "The number of shards specified must be >= 1 and <= 50." +
-                "This option cannot be used along max-test-shards and is not compatible with smart sharding." +
-                "If you want to take benefits of smart sharding use max-test-shards."]
+            "The shards are run in parallel on separate devices. For example," +
+            "if your test execution contains 20 test cases and you specify four shards, each shard executes five test cases." +
+            "The number of shards should be less than the total number of test cases." +
+            "The number of shards specified must be >= 1 and <= 50." +
+            "This option cannot be used along max-test-shards and is not compatible with smart sharding." +
+            "If you want to take benefits of smart sharding use max-test-shards."]
     )
     @set:JsonProperty("num-uniform-shards")
     var numUniformShards: Int? by data
@@ -146,7 +186,7 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
     @set:CommandLine.Option(
         names = ["--test-runner-class"],
         description = ["The fully-qualified Java class name of the instrumentation test runner (default: the last name extracted " +
-                "from the APK manifest)."]
+            "from the APK manifest)."]
     )
     @set:JsonProperty("test-runner-class")
     var testRunnerClass: String? by data
@@ -155,10 +195,10 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
         names = ["--test-targets"],
         split = ",",
         description = ["A list of one or more test target filters to apply " +
-                "(default: run all test targets). Each target filter must be fully qualified with the package name, class name, " +
-                "or test annotation desired. Any test filter supported by am instrument -e … is supported. " +
-                "See https://developer.android.com/reference/android/support/test/runner/AndroidJUnitRunner for more " +
-                "information."]
+            "(default: run all test targets). Each target filter must be fully qualified with the package name, class name, " +
+            "or test annotation desired. Any test filter supported by am instrument -e … is supported. " +
+            "See https://developer.android.com/reference/android/support/test/runner/AndroidJUnitRunner for more " +
+            "information."]
     )
     @set:JsonProperty("test-targets")
     var testTargets: List<String?>? by data
@@ -195,23 +235,9 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
 
         override val group = IYmlKeys.Group.GCLOUD
 
-        override val keys = listOf(
-            "app",
-            "test",
-            "additional-apks",
-            "auto-google-login",
-            "use-orchestrator",
-            "environment-variables",
-            "directories-to-pull",
-            "other-files",
-            "performance-metrics",
-            "num-uniform-shards",
-            "test-runner-class",
-            "test-targets",
-            "robo-directives",
-            "robo-script",
-            "device"
-        )
+        override val keys by lazy {
+            AndroidGcloudConfig::class.ymlKeys
+        }
 
         fun default() = AndroidGcloudConfig().apply {
             app = null
@@ -220,14 +246,18 @@ data class AndroidGcloudConfig @JsonIgnore constructor(
             autoGoogleLogin = FlankDefaults.DISABLE_AUTO_LOGIN
             useOrchestrator = true
             environmentVariables = emptyMap()
+            grantPermissions = FlankDefaults.GRANT_PERMISSIONS_ALL
             directoriesToPull = emptyList()
             otherFiles = emptyMap()
+            scenarioNumbers = emptyList()
+            scenarioLabels = emptyList()
             performanceMetrics = FlankDefaults.DISABLE_PERFORMANCE_METRICS
             numUniformShards = null
             testRunnerClass = null
             testTargets = emptyList()
             roboDirectives = emptyMap()
             roboScript = null
+            type = null
         }
     }
 }

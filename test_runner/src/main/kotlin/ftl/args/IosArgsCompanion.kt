@@ -38,10 +38,8 @@ open class IosArgsCompanion : IArgs.ICompanion {
     internal fun load(yamlReader: Reader, cli: IosRunCommand? = null) =
         createIosArgs(
             config = defaultIosConfig() +
-                    loadIosConfig(reader = yamlReader) +
-                    cli?.config
-        ).apply {
-            commonArgs.validate()
-            this.validate()
-        }
+                loadIosConfig(reader = yamlReader) +
+                cli?.config,
+            obfuscate = cli?.obfuscate ?: false
+        )
 }

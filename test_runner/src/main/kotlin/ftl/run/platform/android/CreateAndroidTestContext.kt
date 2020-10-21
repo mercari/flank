@@ -1,5 +1,6 @@
 package ftl.run.platform.android
 
+import com.google.common.annotations.VisibleForTesting
 import com.linkedin.dex.parser.DecodedValue
 import com.linkedin.dex.parser.DexParser
 import com.linkedin.dex.parser.TestAnnotation
@@ -54,24 +55,29 @@ private fun InstrumentationTestContext.calculateShards(
     forcedShardCount = args.numUniformShards
 ).run {
     copy(
-        shards = shardChunks.filter { it.isNotEmpty() },
+        shards = shardChunks.filter { it.testMethods.isNotEmpty() },
         ignoredTestCases = ignoredTestCases
     )
 }
 
-private fun InstrumentationTestContext.getFlankTestMethods(
+@VisibleForTesting
+internal fun InstrumentationTestContext.getFlankTestMethods(
     testFilter: TestFilter
 ): List<FlankTestMethod> =
     getParametrizedClasses().let { parameterizedClasses: List<String> ->
         DexParser.findTestMethods(test.local).asSequence()
-            .distinct()
+            .distinctBy { it.testName }
             .filter(testFilter.shouldRun)
             .filterNot(parameterizedClasses::belong)
             .map(TestMethod::toFlankTestMethod).toList()
-            .plus(parameterizedClasses.map(String::toFlankTestMethod))
+            .plus(parameterizedClasses.onlyShouldRun(testFilter))
     }
 
 private fun List<String>.belong(method: TestMethod) = any { className -> method.testName.startsWith(className) }
+
+private fun List<String>.onlyShouldRun(filter: TestFilter) = this
+    .filter { filter.shouldRun(TestMethod(it, emptyList())) }
+    .map { FlankTestMethod("class $it", ignored = false, isParameterizedClass = true) }
 
 private fun TestMethod.toFlankTestMethod() = FlankTestMethod(
     testName = "class $testName",
@@ -84,9 +90,8 @@ private val ignoredAnnotations = listOf(
     "android.support.test.filters.Suppress"
 )
 
-private fun String.toFlankTestMethod() = FlankTestMethod("class $this", ignored = false)
-
-private fun InstrumentationTestContext.getParametrizedClasses(): List<String> =
+@VisibleForTesting
+internal fun InstrumentationTestContext.getParametrizedClasses(): List<String> =
     DexParser.readDexFiles(test.local).fold(emptyList()) { accumulator, file: DexFile ->
         accumulator + file.classDefs
             .filter(file::isParametrizedClass)

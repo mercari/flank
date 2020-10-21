@@ -1,14 +1,113 @@
-## next (unreleased)
-- [#991](https://github.com/Flank/flank/pull/991) Fail fast on orientation mispell ([sloox](https://github.com/Sloox))
-- [#992](https://github.com/Flank/flank/pull/992) Update google api. ([jan-gogo](https://github.com/jan-gogo))
-- [#987](https://github.com/Flank/flank/pull/987) Flank Error Monitoring readme addition ([sloox](https://github.com/Sloox))
-- [#990](https://github.com/Flank/flank/pull/990) Fix: exclusion of @Suppress test. ([piotradamczyk5](https://github.com/piotradamczyk5))
-- [#988](https://github.com/Flank/flank/pull/988) Add versions description command for ios and android. ([adamfilipow92](https://github.com/adamfilipow92))
-- [#969](https://github.com/Flank/flank/pull/969) Add locales description command for ios and android. ([adamfilipow92](https://github.com/adamfilipow92))
-- [#989](https://github.com/Flank/flank/pull/989) CI changes: Check if valid title is used in PR. ([piotradamczyk5](https://github.com/piotradamczyk5))
-- [#987](https://github.com/Flank/flank/pull/987) Flank Error Monitoring readme addition ([sloox](https://github.com/Sloox))
-- [#994](https://github.com/Flank/flank/pull/994) fix: Size annotations support ([pgreze](https://github.com/pgreze))
--
+## v20.09.3
+### Bug Fixes
+- [#1151](https://github.com/Flank/flank/pull/1151) Update flank-scripts serialization ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1149](https://github.com/Flank/flank/pull/1149) Flank-scripts next release tag generation ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1138](https://github.com/Flank/flank/pull/1138) Fix cost report ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1137](https://github.com/Flank/flank/pull/1137) Running Code coverage job ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1130](https://github.com/Flank/flank/pull/1130) Bump action versioning ([Sloox](https://github.com/Sloox))
+- [#1124](https://github.com/Flank/flank/pull/1124) Reflect gclouds outcome for robo tests ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1121](https://github.com/Flank/flank/pull/1121) Dockerfile fix for slack message send ([Sloox](https://github.com/Sloox))
+- [#1116](https://github.com/Flank/flank/pull/1116) Fixes release workflows ([Sloox](https://github.com/Sloox))
+### Features
+- [#1141](https://github.com/Flank/flank/pull/1141) Add Java 15 compile support ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1126](https://github.com/Flank/flank/pull/1126) Allow Flank using different environment variables between test-apks ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1078](https://github.com/Flank/flank/pull/1078) Add proguard initial step into Flank configuration ([Sloox](https://github.com/Sloox))
+- [#1125](https://github.com/Flank/flank/pull/1125) Readded shadowjar minimization ([Sloox](https://github.com/Sloox))
+- [#1109](https://github.com/Flank/flank/pull/1109) Integration tests for Flank ([adamfilipow92](https://github.com/adamfilipow92))
+### Documentation
+- [#1139](https://github.com/Flank/flank/pull/1139) Optimization docs addition ([Sloox](https://github.com/Sloox))
+- [#1136](https://github.com/Flank/flank/pull/1136) Update documentation related with test-targets-always-run feature ([pawelpasterz](https://github.com/pawelpasterz))
+### CI Changes
+- [#1114](https://github.com/Flank/flank/pull/1114) Add Windows workflow ([Sloox](https://github.com/Sloox))
+- [#1095](https://github.com/Flank/flank/pull/1095) Add new bash scripts for test artifacts generation ([axelzuziak-gogo](https://github.com/axelzuziak-gogo), [jan-gogo](https://github.com/jan-gogo))
+### Refactor
+- [#1113](https://github.com/Flank/flank/pull/1113) Use single settings.gradle for flank projects ([jan-gogo](https://github.com/jan-gogo), [piotradamczyk5](https://github.com/piotradamczyk5))
+
+## v20.09.2
+### Features
+- [#1111](https://github.com/Flank/flank/pull/1111) Check if gcs path exist before run ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1110](https://github.com/Flank/flank/pull/1110) Finialize the slack sending integration with actions ([Sloox](https://github.com/Sloox))
+- [#1108](https://github.com/Flank/flank/pull/1108) Support for robo tests without robo script ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1104](https://github.com/Flank/flank/pull/1104) Send slack message for releases ([Sloox](https://github.com/Sloox))
+- [#1097](https://github.com/Flank/flank/pull/1097) Print the matrices web link at the end of a run ([adamfilipow92](https://github.com/adamfilipow92))
+### Bug Fixes
+- [#1107](https://github.com/Flank/flank/pull/1107) Running iOS test on Linux ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1059](https://github.com/Flank/flank/pull/1059) Shards and Tests count do not match ([pawelpasterz](https://github.com/pawelpasterz), [adamfilipow92](https://github.com/adamfilipow92))
+- [#1067](https://github.com/Flank/flank/pull/1067) Matrix path not found in json ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+
+## v20.09.1
+### Bug Fixes
+- [#1100](https://github.com/Flank/flank/pull/1100) Fix gcs files validation ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1093](https://github.com/Flank/flank/pull/1093) Flank release bot formatting ([Sloox](https://github.com/Sloox))
+- [#1091](https://github.com/Flank/flank/pull/1091) Add missing authors to release notes ([adamfilipow92](https://github.com/adamfilipow92))
+
+## v20.09.0
+### Bug Fixes
+- [#1087](https://github.com/Flank/flank/pull/1087) Fix release action ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1080](https://github.com/Flank/flank/pull/1080) Flaky Flank-scripts test ([Sloox](https://github.com/Sloox))
+- [#1079](https://github.com/Flank/flank/pull/1079) Fix slack notification in slack ([Sloox](https://github.com/Sloox))
+- [#1054](https://github.com/Flank/flank/pull/1054) Firebase refresh fails when test zip file doesn't exist (#1052) ([axelzuziak-gogo](https://github.com/axelzuziak-gogo), [jan-gogo](https://github.com/jan-gogo))
+- [#1070](https://github.com/Flank/flank/pull/1070) Avoid fast fail while creating a bucket ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1066](https://github.com/Flank/flank/pull/1066) Bad validation of `local-result-dir` by Doctor ([piotradamczyk5](https://github.com/piotradamczyk5))
+### CI Changes
+- [#1058](https://github.com/Flank/flank/pull/1058) Post slack message about releases ([Sloox](https://github.com/Sloox))
+
+## v20.08.4
+### Features
+- [#1056](https://github.com/Flank/flank/pull/1056) Added validation of smart-flank-gcs-path to not override different junit results ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1040](https://github.com/Flank/flank/pull/1040) Add test axis value column to summary table ([jan-gogo](https://github.com/jan-gogo))
+- [#1043](https://github.com/Flank/flank/pull/1043) Add printing messages for MatrixCanceledError and InfrastructureError ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1042](https://github.com/Flank/flank/pull/1042) Added option for default test time and average time for smart shard ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Tests update
+- [#1055](https://github.com/Flank/flank/pull/1055) Added missing test t cover duplicated tests issue ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Bug Fixes
+- [#1041](https://github.com/Flank/flank/pull/1041) Invoking flank yml on gcloud cli ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1053](https://github.com/Flank/flank/pull/1053) Avoid releasing on document changes only ([Sloox](https://github.com/Sloox))
+- [#1048](https://github.com/Flank/flank/pull/1048) Flank finding and running duplicate tests ([MatthewTPage](https://github.com/MatthewTPage))
+- [#1051](https://github.com/Flank/flank/pull/1051) PR check from fork ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1044](https://github.com/Flank/flank/pull/1044) Master not compiling ([Sloox](https://github.com/Sloox))
+- [#994](https://github.com/Flank/flank/pull/994) Size annotations support ([pgreze](https://github.com/pgreze))
+### Refactor
+- [#1047](https://github.com/Flank/flank/pull/1047) MatrixMap immutability ([Sloox](https://github.com/Sloox))
+- [#1028](https://github.com/Flank/flank/pull/1028) Savedmatrix immutability change ([Sloox](https://github.com/Sloox))
+### Documentation
+- [#1009](https://github.com/Flank/flank/pull/1009) Avoid multiple identical lines printing ([adamfilipow92](https://github.com/adamfilipow92))
+
+## v20.08.3
+### CI Changes
+- [#1031](https://github.com/Flank/flank/pull/1031) Disable publishing snapshot to Github Packages ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1022](https://github.com/Flank/flank/pull/1022) Publish to GitHub packages ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Bug Fixes
+- [#1027](https://github.com/Flank/flank/pull/1027) OtherNativeCrash NPE ([jan-gogo](https://github.com/jan-gogo))
+- [#1023](https://github.com/Flank/flank/pull/1023) Release notes message at GitHub release ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Refactor
+- [#1025](https://github.com/Flank/flank/pull/1025) Update kotlin version to 1.4 ([pawelpasterz](https://github.com/pawelpasterz))
+
+## v20.08.2
+### Features
+- [#1020](https://github.com/Flank/flank/pull/1020) Make release notes more organized ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1013](https://github.com/Flank/flank/pull/1013) Generating docs before release ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1012](https://github.com/Flank/flank/pull/1012) Add ip-blocks command to test-environment command ([pawelpasterz](https://github.com/pawelpasterz))
+- [#999](https://github.com/Flank/flank/pull/999) Implement ip-blocks list command ([pawelpasterz](https://github.com/pawelpasterz))
+- [#996](https://github.com/Flank/flank/pull/996) Auto generate release notes for next release ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#995](https://github.com/Flank/flank/pull/995) Implement command `models describe` for ios/android ([adamfilipow92](https://github.com/adamfilipow92))
+- [#991](https://github.com/Flank/flank/pull/991) Validate orientation and fail fast ([Sloox](https://github.com/Sloox))
+- [#969](https://github.com/Flank/flank/pull/969) Add locales description command for ios and android ([adamfilipow92](https://github.com/adamfilipow92))
+- [#992](https://github.com/Flank/flank/pull/992) Update google api ([jan-gogo](https://github.com/jan-gogo))
+- [#988](https://github.com/Flank/flank/pull/988) Add versions description command for ios and android ([adamfilipow92](https://github.com/adamfilipow92))
+### Refactor
+- [#1018](https://github.com/Flank/flank/pull/1018) Fetch artifacts async ([pawelpasterz](https://github.com/pawelpasterz))
+### Bug Fixes
+- [#919](https://github.com/Flank/flank/pull/919) Rate limit exceeded ([pawelpasterz](https://github.com/pawelpasterz), [jan-gogo](https://github.com/jan-gogo))
+- [#1005](https://github.com/Flank/flank/pull/1005) Generation of release notes ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1007](https://github.com/Flank/flank/pull/1007) Failing tests ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#990](https://github.com/Flank/flank/pull/990) Exclusion of @Suppress test ([piotradamczyk5](https://github.com/piotradamczyk5))
+### CI Changes
+- [#1015](https://github.com/Flank/flank/pull/1015) Update mergify configuration ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1011](https://github.com/Flank/flank/pull/1011) Generate release notes for Github release description ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#989](https://github.com/Flank/flank/pull/989) Check if valid title is used in PR ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Documentation
+- [#987](https://github.com/Flank/flank/pull/987) Analytics addition to readme ([Sloox](https://github.com/Sloox))
 
 ## v20.08.1
 - [#978](https://github.com/Flank/flank/pull/978) Firebaseopensource.com addition ([sloox](https://github.com/Sloox))
@@ -285,3 +384,4 @@
 - Improve test parsing to detect Swift tests that throw errors
 - Update Flank exit codes, see readme for details.
 - Link to matrix root when testing on multiple devices
+

@@ -15,7 +15,7 @@ gcloud:
 
   ## The max time this test execution can run before it is cancelled (default: 15m).
   ## It does not include any time necessary to prepare and clean up the target device.
-  ## The maximum possible testing time is 30m on physical devices and 60m on virtual devices.
+  ## The maximum possible testing time is 45m on physical devices and 60m on virtual devices.
   ## The TIMEOUT units can be h, m, or s. If no unit is given, seconds are assumed.
   # timeout: 30m
 
@@ -101,7 +101,20 @@ flank:
   ## Default: false
   # smart-flank-disable-upload: false
 
-  ## Disables sharding. Useful for parameterized tests.
+  ## Enable using average time from previous tests duration when using SmartShard and tests did not run before.
+  ## Default: false
+  # use-average-test-time-for-new-tests: true
+
+  ## Set default test time used for calculating shards.
+  ## Default: 120.0
+  # default-test-time: 15
+
+  ## Set default test time (in seconds) used for calculating shards of parametrized classes when previous tests results are not available.
+  ## Default test time for classes should be different from the default time for test
+  ## Default: 240.0
+  # default-class-test-time: 30
+
+## Disables sharding. Useful for parameterized tests.
   # disable-sharding: false
 
   ## always run - these tests are inserted at the beginning of every shard
