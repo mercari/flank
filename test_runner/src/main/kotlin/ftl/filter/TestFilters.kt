@@ -48,6 +48,7 @@ object TestFilters {
     private const val ARGUMENT_NOT_TEST_FILE = "notTestFile"
 
     private const val ARGUMENT_ONLY_QA = "filter_qa"
+    private const val ARGUMENT_ONLY_NON_QA = "filter_non_qa"
 
     private val FILTER_ARGUMENT by lazy {
 
@@ -61,7 +62,8 @@ object TestFilters {
             ARGUMENT_NOT_TEST_PACKAGE,
             ARGUMENT_TEST_FILE,
             ARGUMENT_NOT_TEST_FILE,
-            ARGUMENT_ONLY_QA
+            ARGUMENT_ONLY_QA,
+            ARGUMENT_ONLY_NON_QA
         ).joinToString("|")
 
         Pattern.compile("""($pattern)\s+(.+)""")
@@ -117,7 +119,8 @@ object TestFilters {
             ARGUMENT_TEST_FILE -> fromTestFile(args)
             ARGUMENT_NOT_TEST_FILE -> not(fromTestFile(args))
             ARGUMENT_TEST_SIZE -> withSize(args)
-            ARGUMENT_ONLY_QA -> onlyQA()
+            ARGUMENT_ONLY_QA -> onlyQA(args)
+            ARGUMENT_ONLY_NON_QA -> onlyNonQa(args)
             else -> throw FlankConfigurationError("Filtering option $command not supported")
         }
     }
@@ -186,14 +189,29 @@ object TestFilters {
         isAnnotation = true
     )
 
-    private fun onlyQA(): TestFilter = TestFilter(
-        describe = "onlyQA",
+    private fun onlyQA(packageNames: List<String>): TestFilter = TestFilter(
+        describe = "onlyQA (${packageNames.joinToString(", ")})",
         shouldRun = { testMethod ->
-            val className = testMethod.testName.split("#").first()
-            val simpleName = className.split(".").last()
-            simpleName.startsWith("QA") && simpleName.endsWith("Test")
+            testMethod.isQaTest() && packageNames.any { packageName ->
+                testMethod.testName.startsWith(packageName)
+            }
         }
     )
+
+    private fun onlyNonQa(packageNames: List<String>): TestFilter = TestFilter(
+        describe = "onlyNonQA (${packageNames.joinToString(", ")})",
+        shouldRun = { testMethod ->
+            testMethod.isQaTest().not() && packageNames.any { packageName ->
+                testMethod.testName.startsWith(packageName)
+            }
+        }
+    )
+
+    private fun TestMethod.isQaTest(): Boolean {
+        val className = testName.split("#").first()
+        val simpleName = className.split(".").last()
+        return simpleName.startsWith("QA") && simpleName.endsWith("Test")
+    }
 
     private fun not(filter: TestFilter): TestFilter = TestFilter(
         describe = "not (${filter.describe})",
