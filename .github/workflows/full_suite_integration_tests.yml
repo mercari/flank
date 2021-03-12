@@ -46,6 +46,7 @@ jobs:
           echo "event name: ${{ github.event_name }}"
           echo "issue command found: ${{ steps.check_issue_comment.outputs.triggered == 'true' }}"
           echo '::set-output name=should_run::${{ env.run_it }}'
+
   integration-tests-post-link:
     runs-on: macos-latest
     needs: [ should_run_it ]
@@ -71,7 +72,11 @@ jobs:
   run-it-full-suite:
     needs: [ should_run_it ]
     if: needs.should_run_it.outputs.run_integration_tests == 'true'
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ macos-latest, windows-latest, ubuntu-latest ]
+      fail-fast: false
     outputs:
       job_status: ${{ job.status }}
       build-scan-url: ${{ steps.run-it.outputs.build-scan-url }}
@@ -96,13 +101,22 @@ jobs:
       - name: Prepare Google Service Account
         env:
           GCLOUD_KEY: ${{ secrets.GCLOUD_KEY }}
+
         run: |
-          GCLOUD_DIR="$HOME/.config/gcloud/"
-          mkdir -p "$GCLOUD_DIR"
-          echo "$GCLOUD_KEY" | base64 --decode > "$GCLOUD_DIR/application_default_credentials.json"
+            if [ "$RUNNER_OS" == "Windows" ]; then
+                GCLOUD_DIR=$HOMEPATH\\.config\\gcloud\\
+                mkdir -p $GCLOUD_DIR
+                echo $GCLOUD_KEY > key.txt
+                certutil -decode key.txt $GCLOUD_DIR\application_default_credentials.json
+            else
+                GCLOUD_DIR="$HOME/.config/gcloud/"
+                mkdir -p "$GCLOUD_DIR"
+                echo "$GCLOUD_KEY" | base64 --decode > "$GCLOUD_DIR/application_default_credentials.json"
+            fi
+        shell: bash
 
       - name: Gradle integration tests
-        uses: eskatos/gradle-command-action@v1
+        uses: eskatos/gradle-command-action@v1.3.3
         id: run-it
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -110,23 +124,40 @@ jobs:
         with:
           arguments: "integrationTests"
 
+      - name: Export Variables for FlankScripts
+        if: ${{ always() }}
+        uses: UnlyEd/github-action-store-variable@v2.1.0
+        with:
+          variables: |
+            ${{ matrix.os }}=${{ job.status }}
+            ${{ matrix.os }}-bs=${{steps.run-it.outputs.build-scan-url}}
+
   process-results:
     needs: [ run-it-full-suite ]
     runs-on: macos-latest
     if: always() && github.event_name != 'issue_comment'
     steps:
+      - name: Import variable
+        uses: UnlyEd/github-action-store-variable@v2.1.0
+        with:
+          delimiter: ','
+          variables: |
+            windows-latest,windows-latest-bs,macos-latest,macos-latest-bs,ubuntu-latest,ubuntu-latest-bs
+
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Download flankScripts and add it to PATH
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./gradlew :flank-scripts:download
           echo "./flank-scripts/bash" >> $GITHUB_PATH
 
       - name: Process IT results
         run: |
-          flankScripts integration processResults \
-          --result=${{ needs.run-it-full-suite.outputs.job_status }} \
-          --url=${{ needs.run-it-full-suite.outputs.build-scan-url }} \
+          flankScripts integration_tests process_results \
+          --global-result=${{ needs.run-it-full-suite.outputs.job_status }} \
+          --run-result='${{ toJSON(env) }}' \
           --github-token=${{ secrets.GITHUB_TOKEN }} \
           --run-id=${{ github.run_id }}
 
@@ -135,6 +166,13 @@ jobs:
     runs-on: macos-latest
     if: always() && github.event_name == 'issue_comment'
     steps:
+      - name: Import variable
+        uses: UnlyEd/github-action-store-variable@v2.1.0
+        with:
+          delimiter: ','
+          variables: |
+            windows-latest,windows-latest-bs,macos-latest,macos-latest-bs,ubuntu-latest,ubuntu-latest-bs
+
       - name: Update comment on failure
         if: ${{ needs.run-it-full-suite.outputs.job_status == 'failure' }}
         uses: peter-evans/create-or-update-comment@v1
@@ -143,7 +181,9 @@ jobs:
           edit-mode: replace
           body: |
             **Integration tests failed :x:**
-            Build scan ${{ needs.run-it-full-suite.outputs.build-scan-url }}
+            Windows status ${{ env.windows-latest }} - Build scan: ${{ env.windows-latest-bs }}
+            MacOS status ${{ env.macos-latest }} - Build scan: ${{ env.macos-latest-bs }}
+            Linux status ${{ env.ubuntu-latest }} - Build scan: ${{ env.ubuntu-latest-bs }}
             Workflow run https://github.com/Flank/flank/actions/runs/${{ github.run_id }}
           reactions: '-1'
 
@@ -154,8 +194,10 @@ jobs:
           comment-id: ${{ needs.integration-tests-post-link.outputs.comment_id }}
           edit-mode: replace
           body: |
-            **Integration tests succeed :white_check_mark:**
-            Build scan ${{ needs.run-it-full-suite.outputs.build-scan-url }}
+            **Integration tests succeed for all OSes :white_check_mark:**
+            Windows Build scan: ${{ env.windows-latest-bs }}
+            MacOS Build scan: ${{ env.macos-latest-bs }}
+            Linux Build scan: ${{ env.ubuntu-latest-bs }}
             Workflow run https://github.com/Flank/flank/actions/runs/${{ github.run_id }}
           reactions: '+1'
 

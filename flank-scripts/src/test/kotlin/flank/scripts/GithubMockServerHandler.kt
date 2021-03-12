@@ -2,17 +2,17 @@ package flank.scripts
 
 import com.github.kittinunf.fuel.core.Method
 import com.github.kittinunf.fuel.core.Request
-import flank.scripts.ci.releasenotes.GitHubRelease
-import flank.scripts.github.objects.Author
-import flank.scripts.github.objects.Commit
-import flank.scripts.github.objects.GitHubCommit
-import flank.scripts.github.objects.GitHubCreateIssueCommentResponse
-import flank.scripts.github.objects.GitHubCreateIssueResponse
-import flank.scripts.github.objects.GitHubLabel
-import flank.scripts.github.objects.GitHubWorkflowRun
-import flank.scripts.github.objects.GitHubWorkflowRunsSummary
-import flank.scripts.github.objects.GithubPullRequest
-import flank.scripts.github.objects.GithubUser
+import flank.scripts.data.github.objects.Author
+import flank.scripts.data.github.objects.Commit
+import flank.scripts.data.github.objects.GitHubCommit
+import flank.scripts.data.github.objects.GitHubCreateIssueCommentResponse
+import flank.scripts.data.github.objects.GitHubCreateIssueResponse
+import flank.scripts.data.github.objects.GitHubLabel
+import flank.scripts.data.github.objects.GitHubRelease
+import flank.scripts.data.github.objects.GitHubWorkflowRun
+import flank.scripts.data.github.objects.GitHubWorkflowRunsSummary
+import flank.scripts.data.github.objects.GithubPullRequest
+import flank.scripts.data.github.objects.GithubUser
 import flank.scripts.utils.toJson
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -34,7 +34,7 @@ fun handleGithubMockRequest(url: String, request: Request) = when {
     url ends """/issues/\d*/comments""" && request.isPOST -> request.buildResponse(createComment, 200)
     url ends """/commits\?since=*""" -> request.buildResponse(testGithubIssueList, 200)
     url.endsWith("/git/refs/tags/success") -> request.buildResponse("", 200)
-    url.endsWith("/releases/latest") && request.containsSuccessHeader() ->
+    url.endsWith("/releases/latest") ->
         request.buildResponse(GitHubRelease("v20.08.0").toJson(), 200)
     url.endsWith("/commits/success/pulls") -> request.buildResponse(Json.encodeToString(githubPullRequestTest), 200)
     url.endsWith("/commits") -> request.buildResponse(testGithubIssueList, 200)

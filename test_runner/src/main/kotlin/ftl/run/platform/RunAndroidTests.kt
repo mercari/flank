@@ -2,15 +2,17 @@ package ftl.run.platform
 
 import com.google.testing.Testing
 import com.google.testing.model.TestMatrix
+import flank.common.join
 import flank.common.logLn
 import ftl.args.AndroidArgs
 import ftl.args.isInstrumentationTest
+import ftl.args.shardsFilePath
+import ftl.config.FtlConstants
 import ftl.gc.GcAndroidDevice
 import ftl.gc.GcAndroidTestMatrix
 import ftl.gc.GcStorage
 import ftl.gc.GcToolResults
 import ftl.http.executeWithRetry
-import ftl.run.ANDROID_SHARD_FILE
 import ftl.run.exception.FlankGeneralError
 import ftl.run.model.AndroidMatrixTestShards
 import ftl.run.model.AndroidTestContext
@@ -29,6 +31,7 @@ import ftl.run.platform.common.beforeRunTests
 import ftl.run.saveShardChunks
 import ftl.shard.Chunk
 import ftl.shard.testCases
+import ftl.util.saveToFlankLinks
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -85,18 +88,25 @@ private fun String.createGcsPath(contextIndex: Int, runIndex: Int) =
     else "$this/matrix_${contextIndex}_$runIndex/"
 
 private fun List<AndroidTestContext>.dumpShards(config: AndroidArgs) = takeIf { config.isInstrumentationTest }?.apply {
+    saveToFlankLinks(
+        config.shardsFilePath,
+        FtlConstants.GCS_STORAGE_LINK + join(
+            config.resultsBucket,
+            config.resultsDir
+        )
+    )
     if (config.testTargetsForShard.isEmpty())
         filterIsInstance<InstrumentationTestContext>()
             .asMatrixTestShards()
-            .saveShards(config.obfuscateDumpShards)
-    if (config.disableResultsUpload.not()) GcStorage.upload(ANDROID_SHARD_FILE, config.resultsBucket, config.resultsDir)
+            .saveShards(config)
+    if (config.disableResultsUpload.not()) GcStorage.upload(config.shardsFilePath, config.resultsBucket, config.resultsDir)
 } ?: this
 
-private fun AndroidMatrixTestShards.saveShards(obfuscateOutput: Boolean) = saveShardChunks(
-    shardFilePath = ANDROID_SHARD_FILE,
+private fun AndroidMatrixTestShards.saveShards(config: AndroidArgs) = saveShardChunks(
+    shardFilePath = config.shardsFilePath,
     shards = this,
     size = size,
-    obfuscatedOutput = obfuscateOutput
+    obfuscatedOutput = config.obfuscateDumpShards
 )
 
 private suspend fun executeAndroidTestMatrix(

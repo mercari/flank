@@ -11,11 +11,16 @@ import ftl.config.android.AndroidFlankConfig
 import ftl.config.android.AndroidGcloudConfig
 import ftl.config.createConfiguration
 import ftl.mock.MockServer
+import ftl.reports.output.configure
+import ftl.reports.output.log
+import ftl.reports.output.outputReport
+import ftl.reports.output.toOutputReportConfiguration
 import ftl.run.ANDROID_SHARD_FILE
 import ftl.run.dumpShards
 import ftl.run.newTestRun
 import ftl.util.DEVICE_SYSTEM
 import ftl.util.TEST_TYPE
+import ftl.util.printVersionInfo
 import ftl.util.setCrashReportTag
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine
@@ -55,22 +60,30 @@ class AndroidRunCommand : CommonRunCommand(), Runnable {
     }
 
     override fun run() {
+        printVersionInfo()
+
         if (dryRun) {
             MockServer.start()
         }
 
         AndroidArgs.load(Paths.get(configPath), cli = this).apply {
             setupLogLevel()
-            logLn(this)
+
+            outputReport.configure(toOutputReportConfiguration())
+            outputReport.log(this)
             setCrashReportTag(
                 DEVICE_SYSTEM to "android",
                 TEST_TYPE to type?.name.orEmpty()
             )
             sendConfiguration()
-        }.validate().run {
+        }.validate().also { args ->
             runBlocking {
-                if (dumpShards) dumpShards()
-                else newTestRun()
+                if (dumpShards)
+                    args.dumpShards()
+                else {
+                    logLn(args)
+                    args.newTestRun()
+                }
             }
         }
     }

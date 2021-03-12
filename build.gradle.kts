@@ -15,7 +15,13 @@ plugins {
     kotlin(Plugins.Kotlin.PLUGIN_JVM) version Versions.KOTLIN
     id(Plugins.KTLINT_GRADLE_PLUGIN) version Versions.KTLINT_GRADLE
     id(Plugins.BEN_MANES_PLUGIN) version Versions.BEN_MANES
-    id(Plugins.JFROG_BINTRAY) version Versions.BINTRAY
+    id(Plugins.NEXUS_STAGING) version Versions.NEXUS_STAGING
+}
+
+nexusStaging {
+    username = System.getenv("MVN_CENTRAL_USER") ?: properties["MVN_CENTRAL_USER"].toString()
+    password = System.getenv("MVN_CENTRAL_PASSWORD") ?: properties["MVN_CENTRAL_PASSWORD"].toString()
+    packageGroup = "com.github.flank"
 }
 
 tasks {

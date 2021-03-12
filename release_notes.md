@@ -1,3 +1,106 @@
+## v21.03.1
+### Bug Fixes
+- [#1680](https://github.com/Flank/flank/pull/1680) Fix output report error with dump shards ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1671](https://github.com/Flank/flank/pull/1671) Saving service account by flank script ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1662](https://github.com/Flank/flank/pull/1662) Fix NPE in GcToolResults ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1657](https://github.com/Flank/flank/pull/1657) Remove physical device from integration tests ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1656](https://github.com/Flank/flank/pull/1656) Snapshot publish by disabling closing staging artifacts ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1652](https://github.com/Flank/flank/pull/1652) Fix snapshot upload ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1649](https://github.com/Flank/flank/pull/1649) JUnitReport.xml only contained 50 test results ([dmytrodanylyk](https://github.com/dmytrodanylyk))
+- [#1648](https://github.com/Flank/flank/pull/1648) Publishing to GithubPackages ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Features
+- [#1675](https://github.com/Flank/flank/pull/1675) Return directories path in Flank Github action ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1673](https://github.com/Flank/flank/pull/1673) Run Flank Github action with config provided by user ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1663](https://github.com/Flank/flank/pull/1663) Added reading service account in Github action ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1660](https://github.com/Flank/flank/pull/1660) Add Flank GitHub action ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1659](https://github.com/Flank/flank/pull/1659) Remove flank-actions ([Sloox](https://github.com/Sloox))
+- [#1655](https://github.com/Flank/flank/pull/1655) Update Flank Slack release notifier ([Sloox](https://github.com/Sloox))
+### CI Changes
+- [#1679](https://github.com/Flank/flank/pull/1679) Fix publishing snapshots ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1654](https://github.com/Flank/flank/pull/1654) Treat env json as a string ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1653](https://github.com/Flank/flank/pull/1653) Parse env object to JSON ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1639](https://github.com/Flank/flank/pull/1639) Update workflow file ([pawelpasterz](https://github.com/pawelpasterz))
+### Documentation
+- [#1621](https://github.com/Flank/flank/pull/1621) Corellium sandbox ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1670](https://github.com/Flank/flank/pull/1670) Add SDD for 1609 feature request ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1644](https://github.com/Flank/flank/pull/1644) Add Flank output research docs ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+### Tests update
+- [#1661](https://github.com/Flank/flank/pull/1661) Implement logic to clear LocalGcs after each test ([pawelpasterz](https://github.com/pawelpasterz))
+### Refactor
+- [#1651](https://github.com/Flank/flank/pull/1651) Change packages of commands ([piotradamczyk5](https://github.com/piotradamczyk5))
+
+## v21.03.0
+### CI Changes
+- [#1641](https://github.com/Flank/flank/pull/1641) Add missing subcommands ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1642](https://github.com/Flank/flank/pull/1642) Fix release workflow ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1640](https://github.com/Flank/flank/pull/1640) Fix gradle command ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1618](https://github.com/Flank/flank/pull/1618) Publish Flank-scripts to Github ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1614](https://github.com/Flank/flank/pull/1614) Publish flank to maven central ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+### Documentation
+- [#1627](https://github.com/Flank/flank/pull/1627) Explore test-targets-for-shards SDD ([Sloox](https://github.com/Sloox), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1592](https://github.com/Flank/flank/pull/1592) Fix SDD for Github action ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1590](https://github.com/Flank/flank/pull/1590) Github action SDD proposal ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1583](https://github.com/Flank/flank/pull/1583) Flank-scripts ops package organization ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1566](https://github.com/Flank/flank/pull/1566) Flank-scripts command overview ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Features
+- [#1635](https://github.com/Flank/flank/pull/1635) Part 2 of IT tests ([Sloox](https://github.com/Sloox), [pawelpasterz](https://github.com/pawelpasterz))
+- [#1624](https://github.com/Flank/flank/pull/1624) Part 1 of multiple OS IT tests ([Sloox](https://github.com/Sloox))
+- [#1559](https://github.com/Flank/flank/pull/1559) Add storing output as json ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+### Bug Fixes
+- [#1631](https://github.com/Flank/flank/pull/1631) Update compare files in IT ([Sloox](https://github.com/Sloox), [pawelpasterz](https://github.com/pawelpasterz))
+- [#1628](https://github.com/Flank/flank/pull/1628) Remove analytics from integration tests ([Sloox](https://github.com/Sloox))
+- [#1626](https://github.com/Flank/flank/pull/1626) Spacing fix for yml file ([Sloox](https://github.com/Sloox))
+- [#1620](https://github.com/Flank/flank/pull/1620) Authenticate in Github CLI before release Flank-Scripts ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1619](https://github.com/Flank/flank/pull/1619) Releasing flank-scripts ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1617](https://github.com/Flank/flank/pull/1617) Release job ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1612](https://github.com/Flank/flank/pull/1612) NPE on dumpShards ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1593](https://github.com/Flank/flank/pull/1593) Remove GameloopIT test for IOS ([Sloox](https://github.com/Sloox))
+- [#1585](https://github.com/Flank/flank/pull/1585) Print Flank version only on run command ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1581](https://github.com/Flank/flank/pull/1581) Fixes for Workflow files & IT tests ([Sloox](https://github.com/Sloox), [adamfilipow92](https://github.com/adamfilipow92))
+- [#1575](https://github.com/Flank/flank/pull/1575) Increase heap size ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1564](https://github.com/Flank/flank/pull/1564) Windows issues ([Sloox](https://github.com/Sloox))
+- [#1560](https://github.com/Flank/flank/pull/1560) Fix IT workflow for windows ([Sloox](https://github.com/Sloox))
+- [#1557](https://github.com/Flank/flank/pull/1557) Move shards json to result directory ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+### Refactor
+- [#1589](https://github.com/Flank/flank/pull/1589) Move function to files which use them ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1584](https://github.com/Flank/flank/pull/1584) Reorganize domain layer of flank scripts ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1574](https://github.com/Flank/flank/pull/1574) Refactor CLI of Flank-scripts ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1572](https://github.com/Flank/flank/pull/1572) Flank scripts features not depends on each other ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1533](https://github.com/Flank/flank/pull/1533) Refactor flank scripts ([jan-gogo](https://github.com/jan-gogo), [adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+
+## v21.02.0
+### Bug Fixes
+- [#1547](https://github.com/Flank/flank/pull/1547) IT test fix ()
+- [#1540](https://github.com/Flank/flank/pull/1540) Dummy var for pr ([Sloox](https://github.com/Sloox))
+- [#1546](https://github.com/Flank/flank/pull/1546) Fix flaky FilesTest ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1526](https://github.com/Flank/flank/pull/1526) Windows Integration tests ([Sloox](https://github.com/Sloox))
+- [#1521](https://github.com/Flank/flank/pull/1521) Fix NPE and logging ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1506](https://github.com/Flank/flank/pull/1506) Improve Sentry logging for tests ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1470](https://github.com/Flank/flank/pull/1470) Resolve Fails on Windows ([Sloox](https://github.com/Sloox), [pawelpasterz](https://github.com/pawelpasterz))
+- [#1490](https://github.com/Flank/flank/pull/1490) Fix incorrect method usage on master ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1465](https://github.com/Flank/flank/pull/1465) CI failures on performance tests ([piotradamczyk5](https://github.com/piotradamczyk5))
+### CI Changes
+- [#1537](https://github.com/Flank/flank/pull/1537) Integration Test for all OS's ([Sloox](https://github.com/Sloox))
+- [#1534](https://github.com/Flank/flank/pull/1534) Added Windows workflow ([piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1535](https://github.com/Flank/flank/pull/1535) Windows integration test ([Sloox](https://github.com/Sloox))
+- [#1468](https://github.com/Flank/flank/pull/1468) Use pointer workflows to preserve run date ([pawelpasterz](https://github.com/pawelpasterz), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1456](https://github.com/Flank/flank/pull/1456) Update config for CLA ([piotradamczyk5](https://github.com/piotradamczyk5))
+### Tests update
+- [#1525](https://github.com/Flank/flank/pull/1525) Add missing iOS options in IT ([pawelpasterz](https://github.com/pawelpasterz))
+- [#1514](https://github.com/Flank/flank/pull/1514) Update compare file and make url option not required ([pawelpasterz](https://github.com/pawelpasterz), [adamfilipow92](https://github.com/adamfilipow92))
+### Features
+- [#1448](https://github.com/Flank/flank/pull/1448) Filtering test configurations (iOS TestPlans) ([axelzuziak-gogo](https://github.com/axelzuziak-gogo), [jan-gogo](https://github.com/jan-gogo))
+- [#1504](https://github.com/Flank/flank/pull/1504) Sending configuration to mixpanel ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1474](https://github.com/Flank/flank/pull/1474) Amend pre-commit hook ([Sloox](https://github.com/Sloox))
+- [#1471](https://github.com/Flank/flank/pull/1471) Migrate from bugsnag to sentry ([adamfilipow92](https://github.com/adamfilipow92))
+- [#1428](https://github.com/Flank/flank/pull/1428) Rewrite pre-commit hook & ktlint apply to idea into Flank Scripts ([Sloox](https://github.com/Sloox))
+### Documentation
+- [#1495](https://github.com/Flank/flank/pull/1495) Choose analytics tool ([adamfilipow92](https://github.com/adamfilipow92), [piotradamczyk5](https://github.com/piotradamczyk5))
+### Refactor
+- [#1450](https://github.com/Flank/flank/pull/1450) Enable properties file in flank scripts ([pawelpasterz](https://github.com/pawelpasterz), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1473](https://github.com/Flank/flank/pull/1473) Update picocli to latest version ([pawelpasterz](https://github.com/pawelpasterz), [piotradamczyk5](https://github.com/piotradamczyk5))
+- [#1466](https://github.com/Flank/flank/pull/1466) Change packages in the common module ([pawelpasterz](https://github.com/pawelpasterz))
+
 ## v21.01.1
 ### CI Changes
 - [#1451](https://github.com/Flank/flank/pull/1451) Added CLA assistant ([piotradamczyk5](https://github.com/piotradamczyk5))

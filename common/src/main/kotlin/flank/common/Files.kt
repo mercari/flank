@@ -9,8 +9,16 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
+val defaultCredentialPath: Path by lazy {
+    Paths.get(userHome, ".config/gcloud/application_default_credentials.json")
+}
+
 val userHome: String by lazy {
     if (isWindows) System.getenv("HOMEPATH") else System.getProperty("user.home")
+}
+
+val appDataDirectory: String by lazy {
+    if (isWindows) System.getenv("APPDATA") else System.getProperty("user.home")
 }
 
 fun linkFiles(
@@ -27,6 +35,8 @@ fun createCopy(sourceDirectoryLocation: String, destinationDirectoryLocation: St
     }
     copyDirectory(sourceDirectoryLocation, destinationDirectoryLocation)
 }
+
+fun createFileCopy(source: String, destination: String): Path = Files.copy(Paths.get(source), Paths.get(destination))
 
 fun copyDirectory(sourceDirectoryLocation: String, destinationDirectoryLocation: String) {
     Files.walk(Paths.get(sourceDirectoryLocation))
@@ -64,9 +74,9 @@ fun createSymbolicLink(
     Paths.get(target).toAbsolutePath().normalize()
 )
 
-fun createSymbolicLinkToFile(link: Path, target: Path) {
-    Files.createSymbolicLink(link, target.fileName)
-}
+fun createLinkToFile(link: Path, target: Path): Path =
+    if (isWindows) createFileCopy(target.toString(), link.toString())
+    else Files.createSymbolicLink(link, target.fileName)
 
 fun downloadFile(sourceUrl: String, destination: String) {
     Fuel.download(sourceUrl)
@@ -101,7 +111,7 @@ fun File.hasAllFiles(fileList: List<String>): Boolean {
 
 fun String.fileExists(): Boolean = Paths.get(this).exists()
 
-fun osPathSeperator() = (if (isWindows) "\\" else "/")
+fun osPathSeparator() = (if (isWindows) "\\" else "/")
 
 private fun Path.exists(): Boolean = Files.exists(this)
 

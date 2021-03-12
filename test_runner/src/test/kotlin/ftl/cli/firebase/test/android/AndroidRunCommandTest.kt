@@ -1,6 +1,7 @@
 package ftl.cli.firebase.test.android
 
 import com.google.common.truth.Truth.assertThat
+import flank.common.normalizeLineEnding
 import ftl.args.AndroidArgs
 import ftl.args.yml.AppTestPair
 import ftl.config.Device
@@ -494,6 +495,14 @@ class AndroidRunCommandTest {
         assertThat(cmd.config.common.flank.useAverageTestTimeForNewTests).isTrue()
     }
 
+    @Test
+    fun `--output-report parse`() {
+        val cmd = AndroidRunCommand()
+        CommandLine(cmd).parseArgs("--output-report=json")
+
+        assertThat(cmd.config.common.flank.outputReport).isEqualTo("json")
+    }
+
     @Test(expected = FlankConfigurationError::class)
     fun `should throw if --full-junit-result and JUnitResult xml used`() {
         val cmd = AndroidRunCommand()
@@ -572,5 +581,12 @@ class AndroidRunCommandTest {
         CommandLine(cmd).parseArgs("--type=a")
 
         assertThat(cmd.config.common.gcloud.type).isEqualTo("a")
+    }
+
+    @Test
+    fun `should print version information`() {
+        AndroidRunCommand().run()
+        val output = systemOutRule.log.normalizeLineEnding()
+        assertThat(output).containsMatch("version: .*")
     }
 }

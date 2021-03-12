@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.google.api.client.json.GenericJson
 import com.google.api.client.json.JsonObjectParser
-import com.google.api.client.util.Charsets
 import com.google.cloud.ServiceOptions
 import com.google.cloud.storage.BucketInfo
 import com.google.cloud.storage.Storage
 import com.google.cloud.storage.StorageClass
 import com.google.cloud.storage.StorageOptions
+import flank.common.defaultCredentialPath
 import flank.common.isWindows
 import flank.common.logLn
 import ftl.args.IArgs.Companion.AVAILABLE_PHYSICAL_SHARD_COUNT_RANGE
@@ -18,7 +18,6 @@ import ftl.config.FtlConstants.GCS_PREFIX
 import ftl.config.FtlConstants.JSON_FACTORY
 import ftl.config.FtlConstants.useMock
 import ftl.config.credential
-import ftl.config.defaultCredentialPath
 import ftl.gc.GcStorage
 import ftl.gc.GcToolResults
 import ftl.reports.xml.model.JUnitTestResult
@@ -33,6 +32,7 @@ import ftl.util.assertNotEmpty
 import ftl.util.getGACPathOrEmpty
 import java.io.File
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
@@ -197,7 +197,7 @@ object ArgsHelper {
         projectIdSource = jsonPath.toAbsolutePath().toString()
         JsonObjectParser(JSON_FACTORY).parseAndClose(
             Files.newInputStream(jsonPath),
-            Charsets.UTF_8,
+            StandardCharsets.UTF_8,
             GenericJson::class.java
         )["project_id"] as String
     }.onFailure {

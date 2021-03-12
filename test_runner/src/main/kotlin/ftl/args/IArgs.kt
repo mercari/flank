@@ -8,8 +8,10 @@ import ftl.analytics.IgnoreInStatistics
 import ftl.args.yml.Type
 import ftl.config.Device
 import ftl.config.common.CommonFlankConfig.Companion.defaultLocalResultsDir
+import ftl.reports.output.OutputReportType
 import ftl.run.status.OutputStyle
 import ftl.util.timeoutToMils
+import java.nio.file.Paths
 
 // Properties common to both Android and iOS
 interface IArgs {
@@ -94,6 +96,8 @@ interface IArgs {
 
     val disableUsageStatistics: Boolean
 
+    val outputReportType: OutputReportType
+
     fun useLocalResultDir() = localResultDir != defaultLocalResultsDir
 
     companion object {
@@ -117,3 +121,6 @@ fun IArgs.setupLogLevel() {
 
 val IArgs.blockSendingUsageStatistics
     get() = disableUsageStatistics || isTest()
+
+val IArgs.localStorageDirectory
+    get() = if (useLocalResultDir()) localResultDir else Paths.get(localResultDir, resultsDir).toString()

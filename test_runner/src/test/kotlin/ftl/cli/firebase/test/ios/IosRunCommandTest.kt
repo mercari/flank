@@ -2,6 +2,7 @@ package ftl.cli.firebase.test.ios
 
 import com.google.common.truth.Truth.assertThat
 import flank.common.isWindows
+import flank.common.normalizeLineEnding
 import ftl.args.IosArgs
 import ftl.config.Device
 import ftl.config.FtlConstants
@@ -348,6 +349,14 @@ class IosRunCommandTest {
     }
 
     @Test
+    fun `--output-report parse`() {
+        val cmd = IosRunCommand()
+        CommandLine(cmd).parseArgs("--output-report=json")
+
+        assertThat(cmd.config.common.flank.outputReport).isEqualTo("json")
+    }
+
+    @Test
     fun `should dump shards on ios test run`() {
         assumeFalse(isWindows) // TODO remove in #1180
 
@@ -405,5 +414,14 @@ class IosRunCommandTest {
         CommandLine(cmd).parseArgs("--test-special-entitlements")
 
         assertThat(cmd.config.platform.gcloud.testSpecialEntitlements).isEqualTo(true)
+    }
+
+    @Test
+    fun `should print version information`() {
+        assumeFalse(isWindows)
+
+        IosRunCommand().run()
+        val output = systemOutRule.log.normalizeLineEnding()
+        assertThat(output).containsMatch("version: .*")
     }
 }

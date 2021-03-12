@@ -22,6 +22,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.contrib.java.lang.system.SystemErrRule
@@ -106,6 +107,7 @@ class IosArgsTest {
           disable-results-upload: true
           default-class-test-time: 30.0
           only-test-configuration: pl
+          output-report: json
         """
 
     @get:Rule
@@ -283,6 +285,7 @@ IosArgs
       disable-usage-statistics: false
       only-test-configuration: pl
       skip-test-configuration: 
+      output-report: json
             """.trimIndent()
         )
     }
@@ -346,6 +349,7 @@ IosArgs
       disable-usage-statistics: false
       only-test-configuration: 
       skip-test-configuration: 
+      output-report: none
             """.trimIndent(),
             args.toString()
         )
@@ -1262,6 +1266,8 @@ IosArgs
 
     @Test(expected = FlankConfigurationError::class)
     fun `should throw exception when only-test-configuration is specified for xctestrun v1`() {
+        assumeFalse(isWindows)
+
         val yaml = """
         gcloud:
           test: $testPath
@@ -1274,6 +1280,8 @@ IosArgs
 
     @Test(expected = FlankConfigurationError::class)
     fun `should throw exception when skip-test-configuration is specified for xctestrun v1`() {
+        assumeFalse(isWindows)
+
         val yaml = """
         gcloud:
           test: $testPath
@@ -1286,6 +1294,8 @@ IosArgs
 
     @Test
     fun `should not throw exception when only-test-configuration is specified for xctestrun v2`() {
+        assumeFalse(isWindows)
+
         val yaml = """
         gcloud:
           test: $testPlansPath
@@ -1298,6 +1308,8 @@ IosArgs
 
     @Test
     fun `should not throw exception when skip-test-configuration is specified for xctestrun v2`() {
+        assumeFalse(isWindows)
+
         val yaml = """
         gcloud:
           test: $testPlansPath

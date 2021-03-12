@@ -1,15 +1,15 @@
 package ftl.ios.xctest.common
 
 import flank.common.OutputLogLevel
+import flank.common.appDataDirectory
 import flank.common.createDirectoryIfNotExist
-import flank.common.createSymbolicLinkToFile
+import flank.common.createLinkToFile
 import flank.common.downloadFile
 import flank.common.hasAllFiles
 import flank.common.isMacOS
 import flank.common.isWindows
 import flank.common.logLn
 import flank.common.unzipFile
-import flank.common.userHome
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -37,7 +37,7 @@ private fun neededFilesListByOs(): List<String> = if (isWindows) {
     listOf("nm", "swift-demangle", "libatomic.so.1", "libatomic.so.1.2.0")
 }
 
-private val flankBinariesDirectory = Paths.get(userHome, ".flank")
+private val flankBinariesDirectory = Paths.get(appDataDirectory, ".flank").toAbsolutePath()
 
 private fun downloadAndUnzip(osname: String) {
     createDirectoryIfNotExist(flankBinariesDirectory)
@@ -47,14 +47,14 @@ private fun downloadAndUnzip(osname: String) {
         sourceUrl = "https://github.com/Flank/binaries/releases/download/$osname/binaries.zip",
         destinationPath = destinationFile
     )
-    createDirectoryIfNotExist(flankBinariesDirectory)
+
     unzipFile(destinationFile.toFile().absoluteFile, flankBinariesDirectory.toString())
         .forEach {
             logLn("Binary file $it copied to $flankBinariesDirectory", OutputLogLevel.DETAILED)
             it.setExecutable(true)
         }
     Files.delete(destinationFile)
-    createSymbolicLinkToFile(
+    createLinkToFile(
         link = Paths.get(flankBinariesDirectory.toString(), "libatomic.so.1"),
         target = Paths.get(flankBinariesDirectory.toString(), "libatomic.so.1.2.0")
     )

@@ -1,26 +1,50 @@
-name: slack-user-bot
-
-description: Make a user act like a bot in slack
-author: Flank
-
-branding:
-  icon: file-plus
-  color: blue
-
-runs:
-  using: 'docker'
-  image: './flank-actions/Dockerfile'
-
+name: 'Flank'
+description: 'Run Flank from Github actions!'
 inputs:
-  xoxctoken:
-    description: A slack token that gives permission to act as a user.
+  version: 
+    description: 'Flank version to run'
+    required: false
+  service_account:
+    description: 'Service account for authentication. It could be file content or file itself.'
     required: true
-  message: 
-    description: The message to send
+  platform:
+    description: 'Platform to run [ios | android]'
     required: true
-  channel:
-    description: Channel to send to
+  flank_configuration_file:
+    description: 'Flank configuration file'
     required: true
-  cookie: 
-    description: Required cookie for auth
-    required: true
+outputs:
+  local_results_directory:
+    description: "Path to local results directory"
+    value: ${{ steps.output_paths.outputs.local_results_directory }}
+  gcloud_results_directory:
+    description: "Path to Gcloud storage"
+    value: ${{ steps.output_paths.outputs.gcloud_results_directory }}
+runs:
+  using: "composite"
+  steps:
+    - name: Download flankScripts
+      run: |
+        curl -L https://github.com/Flank/flank/releases/download/flank-scripts-1.9.1/flank-scripts.jar --output flank-scripts.jar
+        echo 'java -jar ./flank-scripts.jar "$@"' > flankScripts
+        chmod +x flankScripts
+      shell: bash
+    - id: download_flank
+      run: |
+        ./flankScripts github download_flank --version=${{ inputs.version }}
+      shell: bash
+    - id: authentication
+      run: |
+        ./flankScripts firebase save_service_account --account='${{ inputs.service_account }}'
+      shell: bash
+    - id: run_flank
+      run: |
+        java -jar flank.jar firebase test ${{ inputs.platform }} run -c=${{ inputs.flank_configuration_file }}
+      shell: bash
+    - id: output_paths
+      run: |
+        file_path=$(find -name "flank-links.log")
+        local_directory_file=$(sed -n '1p' < $file_path)
+        echo "::set-output name=local_results_directory::$(dirname $local_directory_file)"
+        echo "::set-output name=gcloud_results_directory::$(sed -n '2p' < $file_path)"
+      shell: bash

@@ -3,6 +3,8 @@ package ftl.args
 import ftl.analytics.AnonymizeInStatistics
 import ftl.args.yml.AppTestPair
 import ftl.args.yml.Type
+import ftl.run.ANDROID_SHARD_FILE
+import java.nio.file.Paths
 
 data class AndroidArgs(
     val commonArgs: CommonArgs,
@@ -117,6 +119,7 @@ AndroidArgs
       disable-results-upload: $disableResultsUpload
       default-class-test-time: $defaultClassTestTime
       disable-usage-statistics: $disableUsageStatistics
+      output-report: $outputReportType
         """.trimIndent()
     }
 }
@@ -150,6 +153,9 @@ val AndroidArgs.isSanityRobo
 
 val AndroidArgs.isGameLoop
     get() = if (type == null) false else (type == Type.GAMELOOP)
+
+val AndroidArgs.shardsFilePath
+    get() = Paths.get(localStorageDirectory, ANDROID_SHARD_FILE).toAbsolutePath().toString()
 
 private fun String?.isNull() = this == null
 private fun String?.isNotNull() = isNull().not()

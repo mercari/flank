@@ -33,6 +33,8 @@ jobs:
           arguments: dependencyUpdates -DoutputFormatter=json -DoutputDir=.
 
       - name: Download flankScripts and add it to PATH
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./gradlew :flank-scripts:download
           echo "./flank-scripts/bash" >> $GITHUB_PATH
@@ -75,6 +77,8 @@ jobs:
           python-version: '2.x'
 
       - name: Download flankScripts and add it to PATH
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./gradlew :flank-scripts:download
           echo "./flank-scripts/bash" >> $GITHUB_PATH
@@ -82,8 +86,8 @@ jobs:
       - name: Update Java Client
         run: |
           pip install google-apis-client-generator
-          flankScripts shell firebase updateApiJson
-          flankScripts shell firebase generateJavaClient
+          flankScripts firebase update_api
+          flankScripts firebase generate_client
 
       - name: Commit files and create Pull request
         id: pr
@@ -106,13 +110,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download flankScripts and add it to PATH
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./gradlew :flank-scripts:download
           echo "./flank-scripts/bash" >> $GITHUB_PATH
 
       - name: Run SDK check
         run: |
-          flankScripts shell firebase checkForSdkUpdate \
+          flankScripts firebase check_for_sdk_updates \
           --github-token=${{ secrets.GITHUB_TOKEN }} \
           --zenhub-token=${{ secrets.ZENHUB_API_KEY }}
 
