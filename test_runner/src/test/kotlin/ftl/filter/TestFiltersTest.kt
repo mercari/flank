@@ -31,8 +31,9 @@ val WITH_SMALL_ANNOTATION =
 val WITHOUT_LARGE_ANNOTATION = TestMethod("whatever.Foo#testName", emptyList())
 val WITHOUT_MEDIUM_ANNOTATION = TestMethod("whatever.Foo#testName", emptyList())
 val WITHOUT_SMALL_ANNOTATION = TestMethod("whatever.Foo#testName", emptyList())
-val QA_TEST = TestMethod("whatever.QAIntroTest", emptyList())
-val NON_QA_TEST = TestMethod("whatever.IntroTest", emptyList())
+val QA_TEST = TestMethod("my.package.QAIntroTest", emptyList())
+val QA_TEST2 = TestMethod("my.other.QAIntroTest", emptyList())
+val NON_QA_TEST = TestMethod("my.package.IntroTest", emptyList())
 const val TEST_FILE = "src/test/kotlin/ftl/filter/fixtures/dummy-tests-file.txt"
 const val TEST_FILE_2 = "src/test/kotlin/ftl/filter/fixtures/exclude-tests.txt"
 private const val IGNORE_ANNOTATION = "org.junit.Ignore"
@@ -137,10 +138,20 @@ class TestFiltersTest {
 
     @Test
     fun testFilteringOnlyQA() {
-        val filter = fromTestTargets(listOf("filter_qa true"))
+        val filter = fromTestTargets(listOf("filter_qa my.package"))
 
         assertThat(filter.shouldRun(QA_TEST)).isTrue()
         assertThat(filter.shouldRun(NON_QA_TEST)).isFalse()
+        assertThat(filter.shouldRun(QA_TEST2)).isFalse()
+    }
+
+    @Test
+    fun testFilteringOnlyNonQA() {
+        val filter = fromTestTargets(listOf("filter_non_qa my.package"))
+
+        assertThat(filter.shouldRun(QA_TEST)).isFalse()
+        assertThat(filter.shouldRun(NON_QA_TEST)).isTrue()
+        assertThat(filter.shouldRun(BAR_PACKAGE)).isFalse()
     }
 
     @Test
